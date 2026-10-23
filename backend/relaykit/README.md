@@ -49,7 +49,7 @@ JSON 编解码默认用 `encoding/json`，宿主可以在启动时用 `kitutil.S
 
 ## 安装
 
-RelayKit 要求 Go 1.25.1 或更高版本。tag 的形式是 `relaykit/vX.Y.Z`，`@latest` 解析到最新的一个。
+RelayKit 要求 Go 1.25.1 或更高版本。tag 的形式是 `backend/relaykit/vX.Y.Z`，`@latest` 解析到最新的一个。
 
 ```bash
 go get github.com/QuantumNous/new-api/relaykit@latest
@@ -57,13 +57,13 @@ go get github.com/QuantumNous/new-api/relaykit@latest
 
 | 包 | 内容 |
 |---|---|
-| `relaykit/dto` | 四种协议的请求、响应、流式事件和 usage 结构，以及 new-api 宿主共用的渠道、定价和用户设置结构 |
-| `relaykit/types` | 协议格式、错误、诊断、文件来源等共享类型 |
-| `relaykit/relayconvert` | 请求、响应和流式转换入口 |
-| `relaykit/relayconvert/convmeta` | 转换上下文接口 `Meta`、默认实现 `Values` 和选项 `Options` |
-| `relaykit/relayconvert/reasoning` | 推理设置的解析、合并和渲染，包括模型名尾缀解析 |
-| `relaykit/relayconvert/kitutil` | JSON 编解码和日志钩子 |
-| `relaykit/reasonmap` | Claude 和 OpenAI 之间的结束原因映射 |
+| `backend/relaykit/dto` | 四种协议的请求、响应、流式事件和 usage 结构，以及 new-api 宿主共用的渠道、定价和用户设置结构 |
+| `backend/relaykit/types` | 协议格式、错误、诊断、文件来源等共享类型 |
+| `backend/relaykit/relayconvert` | 请求、响应和流式转换入口 |
+| `backend/relaykit/relayconvert/convmeta` | 转换上下文接口 `Meta`、默认实现 `Values` 和选项 `Options` |
+| `backend/relaykit/relayconvert/reasoning` | 推理设置的解析、合并和渲染，包括模型名尾缀解析 |
+| `backend/relaykit/relayconvert/kitutil` | JSON 编解码和日志钩子 |
+| `backend/relaykit/reasonmap` | Claude 和 OpenAI 之间的结束原因映射 |
 
 ## 快速开始
 

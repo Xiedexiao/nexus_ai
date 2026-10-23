@@ -1,6 +1,6 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![new-api](/frontend/public/logo.png)
 
 # New API
 
@@ -138,7 +138,7 @@ New API 是面向應用程式、Agent 和團隊的自託管 AI 閘道。將不�
 | 向量 / 重排 | `POST /v1/embeddings`、`POST /v1/rerank` |
 | 任務外掛 | `POST /v1/tasks/{pluginKey}`、`GET /v1/tasks/{taskId}`，以及各外掛宣告的協定路由 |
 
-[RelayKit](./relaykit/README.md) 提供上述四種文字協定之間的請求、回應和串流轉換。實際可用能力取決於渠道、上游模型和轉換路徑；協定特有的工具與欄位可能無法完整映射。WebSocket 同樣需要上游與渠道設定支援。
+[RelayKit](./backend/relaykit/README.md) 提供上述四種文字協定之間的請求、回應和串流轉換。實際可用能力取決於渠道、上游模型和轉換路徑；協定特有的工具與欄位可能無法完整映射。WebSocket 同樣需要上游與渠道設定支援。
 
 本 README 描述目前原始碼的能力，部署時請同時查看所選版本的發行說明。
 
@@ -190,19 +190,34 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-儲存庫的 [Compose 設定](./docker-compose.yml) 預設啟動 **New API + PostgreSQL + Redis**，並提供 MySQL 和獨立 ClickHouse 日誌資料庫的設定範例。
+儲存庫的 [Compose 設定](./docker/docker-compose.yml) 預設啟動 **New API + PostgreSQL + Redis**，並提供 MySQL 和獨立 ClickHouse 日誌資料庫的設定範例。
 
 ```bash
 git clone https://github.com/QuantumNous/new-api.git
 cd new-api
 ```
 
-啟動前編輯 `docker-compose.yml`：同時替換資料庫、Redis 服務及對應連線字串中的範例密碼，並設定固定的隨機 `SESSION_SECRET`（可用 `openssl rand -hex 32` 產生）。透過 HTTPS 存取控制台時，設定 `SESSION_COOKIE_SECURE=true`，並在 `SESSION_COOKIE_TRUSTED_URL` 中填寫控制台對外的精確 HTTPS Origin。
+啟動前在 shell 或 Compose 檔案同層的 `.env` 中匯出自己的 `POSTGRES_PASSWORD` 與 `REDIS_PASSWORD`，並設定固定的隨機 `SESSION_SECRET`（可用 `openssl rand -hex 32` 產生）；檔案中的值僅為範例。透過 HTTPS 存取控制台時，設定 `SESSION_COOKIE_SECURE=true`，並在 `SESSION_COOKIE_TRUSTED_URL` 中填寫控制台對外的精確 HTTPS Origin。
 
 ```bash
-docker compose up -d
-docker compose logs -f new-api
+docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml logs -f api
 ```
+
+### 服務組成
+
+[docker/docker-compose.yml](./docker/docker-compose.yml) 啟動四個服務，僅對外發佈 web：
+
+| 服務 | 職責 |
+| --- | --- |
+| `api` | Go 閘道：管理 API、轉發、計費、背景任務 |
+| `web` | Nginx 託管建置好的控制台，並將 `/api`、`/v1`、`/v1beta`、`/mj`、`/pg` 反向代理到 `api`；對外發佈 3000 連接埠 |
+| `pgsql` | PostgreSQL 主資料庫 |
+| `redis` | Redis 快取 |
+
+控制台也可以在同一個程序內與閘道一起執行，因為 Go 模組會嵌入控制台建置產物（見 `docker/Dockerfile`）；這個 Compose 檔案把兩者分開，便於各自獨立擴縮與替換。
+
+該檔案支援以環境變數覆寫 `POSTGRES_PASSWORD`、`REDIS_PASSWORD`、`MYSQL_ROOT_PASSWORD` 與 `CLICKHOUSE_PASSWORD`；未設定時使用檔案中的範例值。部署前請在 shell 或 Compose 檔案同層的 `.env` 中設定這些變數。
 
 ### 儲存與設定
 
@@ -234,39 +249,38 @@ docker compose logs -f new-api
 
 ## 開發與擴充
 
-後端使用 Go 和 Gin；控制台使用 React 19、TypeScript、Rsbuild、TanStack 與 Tailwind CSS 4。前端相依套件和指令碼使用 Bun；Go 語言基線見 [go.mod](./go.mod)，容器建置工具鏈見 [Dockerfile](./Dockerfile)。
+後端使用 Go 和 Gin；控制台使用 React 19、TypeScript、Rsbuild、TanStack 與 Tailwind CSS 4。前端相依套件和指令碼使用 Bun；Go 語言基線見 [go.mod](./backend/go.mod)，容器建置工具鏈見 [docker/Dockerfile](./docker/Dockerfile)。
 
-後端會嵌入 `web/dist`，首次啟動前先建置前端：
+後端會嵌入 `backend/web/dist`，首次啟動前先建置前端：
 
 ```bash
 # 儲存庫根目錄
-cd web
-bun install --frozen-lockfile
-bun run build
-cd ..
+# 建置 frontend/ 並將產物複製到 backend/web/dist 供 //go:embed 使用
+make build-web
+cd backend
 go run .
 ```
 
 在另一個終端機啟動前端開發伺服器：
 
 ```bash
-cd web
+cd frontend
 bun run dev -- --port 5173
 ```
 
-存取 [http://localhost:5173](http://localhost:5173)，開發伺服器會將 API 請求代理到 3000 連接埠的後端。需要容器化開發後端時，參閱 [docker-compose.dev.yml](./docker-compose.dev.yml) 和 [makefile](./makefile) 中的 `make dev`。
+存取 [http://localhost:5173](http://localhost:5173)，開發伺服器會將 API 請求代理到 3000 連接埠的後端。需要容器化開發後端時，參閱 [docker/docker-compose.dev.yml](./docker/docker-compose.dev.yml) 和 [makefile](./makefile) 中的 `make dev`。
 
 | 目錄 | 職責 |
 | --- | --- |
-| `router/`、`middleware/`、`controller/` | HTTP 路由、存取驗證與 API 處理 |
-| `relay/` | 上游介接與請求調度 |
-| `service/`、`model/` | 業務邏輯與持久化 |
-| [relaykit/](./relaykit/README.md) | 可獨立建置的協定 DTO 與轉換 Go 模組 |
-| [plugins/tasks/](./plugins/tasks/) | JavaScript 任務外掛；編寫方式與宿主邊界見 [Task Plugin API v1](./docs/plugin-api/v1.md) |
-| `web/` | Web 控制台，參閱[前端開發約定](./web/AGENTS.md) |
+| `backend/router/`、`backend/middleware/`、`backend/controller/` | HTTP 路由、存取驗證與 API 處理 |
+| `backend/relay/` | 上游介接與請求調度 |
+| `backend/service/`、`backend/model/` | 業務邏輯與持久化 |
+| [backend/relaykit/](./backend/relaykit/README.md) | 可獨立建置的協定 DTO 與轉換 Go 模組 |
+| [backend/plugins/tasks/](./backend/plugins/tasks/) | JavaScript 任務外掛；編寫方式與宿主邊界見 [Task Plugin API v1](./docs/plugin-api/v1.md) |
+| `frontend/` | Web 控制台，參閱[前端開發約定](./frontend/AGENTS.md) |
 | [electron/](./electron/README.md) | 桌面封裝與打包 |
 
-貢獻前請閱讀 [AGENTS.md](./AGENTS.md)。依改動範圍執行檢查：Go 模組使用 `make test`；前端在 `web/` 下執行 `bun run typecheck`、`bun run lint`、`bun run test` 和 `bun run build`。修改 RelayKit 後還必須在 `relaykit/` 下執行 `GOWORK=off go build ./...`。
+貢獻前請閱讀 [AGENTS.md](./AGENTS.md)。依改動範圍執行檢查：Go 模組使用 `make test`；前端在 `frontend/` 下執行 `bun run typecheck`、`bun run lint`、`bun run test` 和 `bun run build`。修改 RelayKit 後還必須在 `backend/relaykit/` 下執行 `GOWORK=off go build ./...`。
 
 <a id="documentation"></a>
 

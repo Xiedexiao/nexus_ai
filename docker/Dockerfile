@@ -1,9 +1,11 @@
+ARG GOPROXY=https://proxy.golang.org,direct
+
 FROM oven/bun:1.4.0@sha256:5ff609364c049b54eb0ff560ec96319729a972078ef2c755d758f0c6ef89c2d6 AS builder
 
-WORKDIR /build/web
-COPY web/package.json web/bun.lock ./
+WORKDIR /build/frontend
+COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
-COPY ./web ./
+COPY ./frontend ./
 COPY ./VERSION /build/VERSION
 RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
 
@@ -14,28 +16,34 @@ ARG TARGETOS
 ARG TARGETARCH
 ENV GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64}
 ENV GOEXPERIMENT=greenteagc
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY}
+WORKDIR /build/backend
 
-WORKDIR /build
-
-ADD go.mod go.sum ./
+ADD backend/go.mod backend/go.sum ./
 # relaykit and tokenkit are local submodules referenced via replace; their
 # go.mod files must be present for go mod download to resolve the main module graph.
-ADD relaykit/go.mod ./relaykit/go.mod
-ADD tokenkit/go.mod ./tokenkit/go.mod
+ADD backend/relaykit/go.mod ./relaykit/go.mod
+ADD backend/tokenkit/go.mod ./tokenkit/go.mod
 RUN go mod download
 
-COPY . .
-COPY --from=builder /build/web/dist ./web/dist
-RUN go build -pgo="$(go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
+COPY . /build
+COPY --from=builder /build/frontend/dist ./web/dist
+RUN go build -pgo="$(go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat /build/VERSION)'" -o new-api
 
 FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
 
-RUN apt-get update \
+ARG DEBIAN_MIRROR
+
+RUN if [ -n "${DEBIAN_MIRROR}" ]; then \
+      sed -i "s|deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
+    fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
-COPY --from=builder2 /build/new-api /
+COPY --from=builder2 /build/backend/new-api /
 COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
 EXPOSE 3000
 WORKDIR /data

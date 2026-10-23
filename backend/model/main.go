@@ -1,8 +1,10 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net/mail"
 	"net/url"
 	"os"
 	"strings"
@@ -67,26 +69,91 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
-func createRootAccountIfNeed() error {
-	var user User
-	//if user.Status != common.UserStatusEnabled {
-	if err := DB.First(&user).Error; err != nil {
-		common.SysLog(common.LogText("no user exists, create a root user for you: username is root, password is 123456"))
-		hashedPassword, err := common.Password2Hash("123456")
-		if err != nil {
-			return err
-		}
-		rootUser := User{
-			Username:    "root",
-			Password:    hashedPassword,
-			Role:        common.RoleRootUser,
-			Status:      common.UserStatusEnabled,
-			DisplayName: "Root User",
-			AccessToken: nil,
-			Quota:       100000000,
-		}
-		DB.Create(&rootUser)
+// maxBootstrapUsernameLength mirrors the setup wizard's username bound so both
+// ways of creating the first administrator accept the same accounts.
+const maxBootstrapUsernameLength = 12
+
+// BootstrapRootAccountFromEnv creates the first administrator from
+// INITIAL_ROOT_USERNAME, INITIAL_ROOT_PASSWORD and the optional
+// INITIAL_ROOT_EMAIL. It only acts when no root user exists, so a running
+// deployment can never have its administrator replaced by environment
+// variables, and it never logs the password.
+func BootstrapRootAccountFromEnv() error {
+	username := strings.TrimSpace(os.Getenv("INITIAL_ROOT_USERNAME"))
+	password := os.Getenv("INITIAL_ROOT_PASSWORD")
+	email := NormalizeEmail(os.Getenv("INITIAL_ROOT_EMAIL"))
+	if username == "" && password == "" && email == "" {
+		return nil
 	}
+	if RootUserExists() {
+		// An administrator already exists, so the credentials above are never
+		// applied. The address is still attached when that account has no email
+		// yet: accounts created before INITIAL_ROOT_EMAIL existed would
+		// otherwise stay unreachable by email forever. Existing addresses are
+		// never replaced, so this cannot move an account to another owner.
+		return attachEmailToRootAccountWithoutOne(email)
+	}
+	if username == "" || password == "" {
+		return errors.New("INITIAL_ROOT_USERNAME and INITIAL_ROOT_PASSWORD must be set together")
+	}
+	if len([]rune(username)) > maxBootstrapUsernameLength {
+		return fmt.Errorf("INITIAL_ROOT_USERNAME must be %d characters or fewer", maxBootstrapUsernameLength)
+	}
+	if email != "" {
+		if _, err := mail.ParseAddress(email); err != nil {
+			return errors.New("INITIAL_ROOT_EMAIL is not a valid email address")
+		}
+		if err := EnsureEmailAvailable(email, 0); err != nil {
+			return fmt.Errorf("INITIAL_ROOT_EMAIL is not usable: %w", err)
+		}
+	}
+	hashedPassword, err := common.HashAccountPassword(password)
+	if err != nil {
+		return fmt.Errorf("INITIAL_ROOT_PASSWORD is not acceptable: %w", err)
+	}
+	rootUser := User{
+		Username:    username,
+		Password:    hashedPassword,
+		Email:       email,
+		Role:        common.RoleRootUser,
+		Status:      common.UserStatusEnabled,
+		DisplayName: "Root User",
+		Quota:       100000000,
+	}
+	if err := DB.Create(&rootUser).Error; err != nil {
+		return fmt.Errorf("create the initial administrator: %w", err)
+	}
+	common.SysLog(common.LogText("created the initial administrator from environment variables"))
+	return nil
+}
+
+// attachEmailToRootAccountWithoutOne fills in INITIAL_ROOT_EMAIL on the existing
+// administrator when that account has no address yet. It is a no-op when the
+// variable is empty, when the account already has an address, or when the
+// address belongs to somebody else; the password is never touched.
+func attachEmailToRootAccountWithoutOne(email string) error {
+	if email == "" {
+		common.SysLog(common.LogText("INITIAL_ROOT_USERNAME is ignored: a root user already exists"))
+		return nil
+	}
+	var root User
+	if err := DB.Where("role = ?", common.RoleRootUser).First(&root).Error; err != nil {
+		return fmt.Errorf("load the root user: %w", err)
+	}
+	if NormalizeEmail(root.Email) != "" {
+		common.SysLog(common.LogText("INITIAL_ROOT_USERNAME is ignored: a root user already exists"))
+		return nil
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return errors.New("INITIAL_ROOT_EMAIL is not a valid email address")
+	}
+	if err := EnsureEmailAvailable(email, root.Id); err != nil {
+		return fmt.Errorf("INITIAL_ROOT_EMAIL is not usable: %w", err)
+	}
+	if err := DB.Model(&User{}).Where("id = ?", root.Id).Update("email", email).Error; err != nil {
+		return fmt.Errorf("attach INITIAL_ROOT_EMAIL to the administrator: %w", err)
+	}
+	common.SysLog(common.LogText("attached INITIAL_ROOT_EMAIL to the existing administrator"))
 	return nil
 }
 

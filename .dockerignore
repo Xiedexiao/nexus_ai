@@ -3,10 +3,27 @@
 *.md
 .vscode
 .gitignore
-Makefile
+makefile
 docs
+.agents
 .eslintcache
 .gocache
-/web/node_modules
-/web/dist
+
+# Real environment files and runtime state must never enter the build context.
+# .env.example documents the variables and stays available to the build.
+.env
+.env.*
+!/.env.example
+/docker/.env
+/data
+/logs
+/docker/data
+
+# Build outputs are produced inside the image; stale local copies must not leak in.
+/frontend/node_modules
+/frontend/dist
+/backend/web/dist
+/electron/node_modules
+/electron/dist
+
 !THIRD-PARTY-LICENSES.md

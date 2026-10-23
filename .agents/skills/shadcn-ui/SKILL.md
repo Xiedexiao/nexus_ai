@@ -70,7 +70,7 @@ Vendored: [`vendor/shadcn/mcp.md`](./vendor/shadcn/mcp.md). Live docs: [MCP Serv
 
 ## How it works
 
-1. **Project detection** — Applies when `components.json` exists (here: `web/components.json`).
+1. **Project detection** — Applies when `components.json` exists (here: `frontend/components.json`).
 2. **Context injection** — Use `shadcn info --json` as ground truth for imports and APIs.
 3. **Pattern enforcement** — Use [`vendor/shadcn/rules/`](./vendor/shadcn/rules/) for concrete markup checks; the complete official workflow reference is listed below for deeper CLI, registry, and preset questions.
 4. **Component discovery** — `shadcn docs`, `shadcn search`, MCP, or registries — see the official workflow reference and MCP doc when deeper context is needed.

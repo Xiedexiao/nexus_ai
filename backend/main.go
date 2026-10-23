@@ -325,6 +325,11 @@ func InitResources() error {
 		}
 	}
 
+	if err := model.BootstrapRootAccountFromEnv(); err != nil {
+		common.FatalLog(common.LogText("failed to create the initial administrator: %s", err.Error()))
+		return err
+	}
+
 	model.CheckSetup()
 
 	// Initialize options, should after model.InitDB()

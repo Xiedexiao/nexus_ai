@@ -11,8 +11,9 @@ build
 *.db-shm
 *.db-wal
 logs
-web/dist
-web/node_modules
+frontend/dist
+frontend/node_modules
+backend/web/dist
 .env
 one-api
 new-api
@@ -30,6 +31,7 @@ tiktoken_cache
 electron/node_modules
 electron/dist
 /data/
+docker/data/
 .gomodcache/
 .gocache-temp
 .gopath
@@ -40,7 +42,7 @@ skills-lock.json
 
 # Local-only live probes and scratch test workspaces.
 .local-tests/
-relaykit/relayconvert/chat_responses_live_local_test.go
-service/openaicompat/chat_responses_live_local_test.go
+backend/relaykit/relayconvert/chat_responses_live_local_test.go
+backend/service/openaicompat/chat_responses_live_local_test.go
 go.work
 go.work.sum

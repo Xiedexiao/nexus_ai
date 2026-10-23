@@ -32,37 +32,39 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
-          go-version-file: go.mod
+          go-version-file: backend/go.mod
           cache-dependency-path: |
-            go.sum
-            relaykit/go.sum
-            tokenkit/go.sum
+            backend/go.sum
+            backend/relaykit/go.sum
+            backend/tokenkit/go.sum
 
       - name: Create frontend embed placeholder
         run: |
-          mkdir -p web/dist
-          touch web/dist/index.html
+          mkdir -p backend/web/dist
+          touch backend/web/dist/index.html
 
       - name: Vet root module
+        working-directory: backend
         run: go vet ./...
 
       - name: Vet relaykit independently
-        working-directory: relaykit
+        working-directory: backend/relaykit
         run: go vet ./...
 
       - name: Vet tokenkit independently
-        working-directory: tokenkit
+        working-directory: backend/tokenkit
         run: go vet ./...
 
       - name: Build root module
+        working-directory: backend
         run: go build ./...
 
       - name: Build relaykit independently
-        working-directory: relaykit
+        working-directory: backend/relaykit
         run: go build ./...
 
       - name: Build tokenkit independently
-        working-directory: tokenkit
+        working-directory: backend/tokenkit
         run: go build ./...
 
       - name: Test root, relaykit, and tokenkit modules
@@ -75,7 +77,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
 
     steps:
       - name: Checkout

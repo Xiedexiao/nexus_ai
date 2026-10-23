@@ -39,17 +39,20 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
-          go-version-file: go.mod
+          go-version-file: backend/go.mod
 
       - name: Build frontend
         env:
           CI: ""
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
-          cd web
+          cd frontend
           bun install --frozen-lockfile
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags) bun run build
           cd ..
+          rm -rf backend/web/dist
+          mkdir -p backend/web/dist
+          cp -R frontend/dist backend/web/dist
 
       # - name: Build Go binary (macos/Linux)
       #   if: runner.os != 'Windows'
@@ -60,8 +63,9 @@ jobs:
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
         run: |
+          cd backend
           go mod download
-          go build -pgo="$(go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)'" -o new-api.exe
+          go build -pgo="$(go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)'" -o ../new-api.exe
 
       - name: Update Electron version
         run: |

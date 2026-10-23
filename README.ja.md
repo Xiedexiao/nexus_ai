@@ -1,6 +1,6 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![new-api](/frontend/public/logo.png)
 
 # New API
 
@@ -139,7 +139,7 @@ New API は、アプリケーション、Agent、チーム向けのセルフホ�
 | 埋め込み / リランク | `POST /v1/embeddings`、`POST /v1/rerank` |
 | タスクプラグイン | `POST /v1/tasks/{pluginKey}`、`GET /v1/tasks/{taskId}`、各プラグインが宣言するルート |
 
-[RelayKit](./relaykit/README.md) は、上記 4 種類のテキストプロトコル間でリクエスト、レスポンス、ストリームを変換します。利用できる機能はチャネル、上流モデル、変換経路に依存し、固有のツールやフィールドを完全には変換できない場合があります。WebSocket も対応する上流とチャネル設定が必要です。
+[RelayKit](./backend/relaykit/README.md) は、上記 4 種類のテキストプロトコル間でリクエスト、レスポンス、ストリームを変換します。利用できる機能はチャネル、上流モデル、変換経路に依存し、固有のツールやフィールドを完全には変換できない場合があります。WebSocket も対応する上流とチャネル設定が必要です。
 
 この README は現在のソースコードを説明しています。デプロイするバージョンのリリースノートも確認してください。
 
@@ -191,19 +191,34 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-リポジトリの [Compose 設定](./docker-compose.yml) は、既定で **New API + PostgreSQL + Redis** を起動します。MySQL と独立した ClickHouse ログデータベースの設定例も含まれます。
+リポジトリの [Compose 設定](./docker/docker-compose.yml) は、既定で **New API + PostgreSQL + Redis** を起動します。MySQL と独立した ClickHouse ログデータベースの設定例も含まれます。
 
 ```bash
 git clone https://github.com/QuantumNous/new-api.git
 cd new-api
 ```
 
-起動前に `docker-compose.yml` を編集し、データベースと Redis のサービスおよび接続文字列にあるサンプルパスワードを変更します。永続的に使うランダムな `SESSION_SECRET` も設定してください（`openssl rand -hex 32` で生成可能）。HTTPS の管理画面には `SESSION_COOKIE_SECURE=true` を設定し、公開 HTTPS オリジンを `SESSION_COOKIE_TRUSTED_URL` に正確に指定します。
+起動前に、シェルまたは Compose ファイルと同じ階層の `.env` で独自の `POSTGRES_PASSWORD` と `REDIS_PASSWORD` を設定し、永続的に使うランダムな `SESSION_SECRET`（`openssl rand -hex 32` で生成可能）も設定してください。ファイル内の値はサンプルです。HTTPS の管理画面には `SESSION_COOKIE_SECURE=true` を設定し、公開 HTTPS オリジンを `SESSION_COOKIE_TRUSTED_URL` に正確に指定します。
 
 ```bash
-docker compose up -d
-docker compose logs -f new-api
+docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml logs -f api
 ```
+
+### サービス構成
+
+[docker/docker-compose.yml](./docker/docker-compose.yml) は 4 つのサービスを起動し、外部に公開するのは web のみです。
+
+| サービス | 役割 |
+| --- | --- |
+| `api` | Go ゲートウェイ：管理 API、リレー、課金、バックグラウンドタスク |
+| `web` | Nginx がビルド済みコンソールを配信し、`/api`、`/v1`、`/v1beta`、`/mj`、`/pg` を `api` へ転送。3000 番ポートで公開 |
+| `pgsql` | PostgreSQL（メインデータベース） |
+| `redis` | Redis キャッシュ |
+
+コンソールとゲートウェイは 1 つのプロセスで動かすこともできます（Go モジュールがコンソールのビルド成果物を埋め込みます。`docker/Dockerfile` を参照）。この Compose ファイルでは両者を分離し、個別にスケール・差し替えできるようにしています。
+
+このファイルは `POSTGRES_PASSWORD`、`REDIS_PASSWORD`、`MYSQL_ROOT_PASSWORD`、`CLICKHOUSE_PASSWORD` を環境変数で上書きでき、未設定時はファイル内のサンプル値を使用します。デプロイ前にシェルまたは Compose ファイルと同じ階層の `.env` で設定してください。
 
 ### ストレージと設定
 
@@ -235,39 +250,38 @@ docker compose logs -f new-api
 
 ## 開発と拡張
 
-バックエンドは Go と Gin、管理画面は React 19、TypeScript、Rsbuild、TanStack、Tailwind CSS 4 を使用します。フロントエンドの依存関係とスクリプトには Bun を使います。Go 言語の基準バージョンは [go.mod](./go.mod)、コンテナのビルドツールチェーンは [Dockerfile](./Dockerfile) を参照してください。
+バックエンドは Go と Gin、管理画面は React 19、TypeScript、Rsbuild、TanStack、Tailwind CSS 4 を使用します。フロントエンドの依存関係とスクリプトには Bun を使います。Go 言語の基準バージョンは [go.mod](./backend/go.mod)、コンテナのビルドツールチェーンは [docker/Dockerfile](./docker/Dockerfile) を参照してください。
 
-バックエンドは `web/dist` を埋め込むため、先にフロントエンドをビルドします。
+バックエンドは `backend/web/dist` を埋め込むため、先にフロントエンドをビルドします。
 
 ```bash
 # リポジトリのルート
-cd web
-bun install --frozen-lockfile
-bun run build
-cd ..
+# frontend/ をビルドし、//go:embed 用に backend/web/dist へ出力をコピーします
+make build-web
+cd backend
 go run .
 ```
 
 別のターミナルでフロントエンド開発サーバーを起動します。
 
 ```bash
-cd web
+cd frontend
 bun run dev -- --port 5173
 ```
 
-[http://localhost:5173](http://localhost:5173) を開きます。API リクエストはポート 3000 のバックエンドに転送されます。開発用バックエンドをコンテナで動かす場合は [docker-compose.dev.yml](./docker-compose.dev.yml) と [makefile](./makefile) の `make dev` を参照してください。
+[http://localhost:5173](http://localhost:5173) を開きます。API リクエストはポート 3000 のバックエンドに転送されます。開発用バックエンドをコンテナで動かす場合は [docker/docker-compose.dev.yml](./docker/docker-compose.dev.yml) と [makefile](./makefile) の `make dev` を参照してください。
 
 | 場所 | 役割 |
 | --- | --- |
-| `router/`、`middleware/`、`controller/` | HTTP ルート、アクセス検証、API ハンドラー |
-| `relay/` | 上流アダプターとリクエストのルーティング |
-| `service/`、`model/` | ビジネスロジックと永続化 |
-| [relaykit/](./relaykit/README.md) | プロトコル DTO と変換を提供する、独立してビルド可能な Go モジュール |
-| [plugins/tasks/](./plugins/tasks/) | JavaScript タスクプラグイン。作成方法とホストの境界は [Task Plugin API v1](./docs/plugin-api/v1.md) を参照 |
-| `web/` | Web 管理画面。[フロントエンドの規約](./web/AGENTS.md)を参照 |
+| `backend/router/`、`backend/middleware/`、`backend/controller/` | HTTP ルート、アクセス検証、API ハンドラー |
+| `backend/relay/` | 上流アダプターとリクエストのルーティング |
+| `backend/service/`、`backend/model/` | ビジネスロジックと永続化 |
+| [backend/relaykit/](./backend/relaykit/README.md) | プロトコル DTO と変換を提供する、独立してビルド可能な Go モジュール |
+| [backend/plugins/tasks/](./backend/plugins/tasks/) | JavaScript タスクプラグイン。作成方法とホストの境界は [Task Plugin API v1](./docs/plugin-api/v1.md) を参照 |
+| `frontend/` | Web 管理画面。[フロントエンドの規約](./frontend/AGENTS.md)を参照 |
 | [electron/](./electron/README.md) | デスクトップアプリのラッパーとパッケージング |
 
-貢献前に [AGENTS.md](./AGENTS.md) を確認してください。変更に応じて、Go モジュールは `make test`、フロントエンドは `web/` で `bun run typecheck`、`bun run lint`、`bun run test`、`bun run build` を実行します。RelayKit を変更した場合は、`relaykit/` で `GOWORK=off go build ./...` も実行してください。
+貢献前に [AGENTS.md](./AGENTS.md) を確認してください。変更に応じて、Go モジュールは `make test`、フロントエンドは `frontend/` で `bun run typecheck`、`bun run lint`、`bun run test`、`bun run build` を実行します。RelayKit を変更した場合は、`backend/relaykit/` で `GOWORK=off go build ./...` も実行してください。
 
 <a id="documentation"></a>
 

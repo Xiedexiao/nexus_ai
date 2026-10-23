@@ -1,6 +1,6 @@
 <div align="center">
 
-![new-api](/web/public/logo.png)
+![new-api](/frontend/public/logo.png)
 
 # New API
 
@@ -139,7 +139,7 @@ Utilisez-la pour partager des accès autorisés au sein d'une équipe, changer d
 | Embeddings / rerank | `POST /v1/embeddings`, `POST /v1/rerank` |
 | Extensions de tâches | `POST /v1/tasks/{pluginKey}`, `GET /v1/tasks/{taskId}`, ainsi que les routes déclarées par chaque extension |
 
-[RelayKit](./relaykit/README.md) convertit les requêtes, réponses et flux entre les quatre protocoles textuels. Les capacités disponibles dépendent du canal, du modèle amont et du chemin de conversion ; certains outils et champs propres à un protocole ne sont pas entièrement transposables. WebSocket nécessite également un fournisseur et une configuration de canal compatibles.
+[RelayKit](./backend/relaykit/README.md) convertit les requêtes, réponses et flux entre les quatre protocoles textuels. Les capacités disponibles dépendent du canal, du modèle amont et du chemin de conversion ; certains outils et champs propres à un protocole ne sont pas entièrement transposables. WebSocket nécessite également un fournisseur et une configuration de canal compatibles.
 
 Ce README décrit le code source actuel. Consultez les notes de la version que vous déployez.
 
@@ -191,19 +191,34 @@ curl --fail-with-body http://localhost:3000/v1/responses \
 
 ### Docker Compose
 
-La [configuration Compose](./docker-compose.yml) du dépôt démarre **New API + PostgreSQL + Redis** par défaut. Elle contient aussi des exemples pour MySQL et une base de journaux ClickHouse distincte.
+La [configuration Compose](./docker/docker-compose.yml) du dépôt démarre **New API + PostgreSQL + Redis** par défaut. Elle contient aussi des exemples pour MySQL et une base de journaux ClickHouse distincte.
 
 ```bash
 git clone https://github.com/QuantumNous/new-api.git
 cd new-api
 ```
 
-Avant de démarrer, modifiez `docker-compose.yml` : remplacez les mots de passe d'exemple de la base et de Redis dans les services et les chaînes de connexion, puis définissez un `SESSION_SECRET` aléatoire et persistant (générable avec `openssl rand -hex 32`). Pour une console HTTPS, définissez `SESSION_COOKIE_SECURE=true` et renseignez son origine HTTPS publique exacte dans `SESSION_COOKIE_TRUSTED_URL`.
+Avant de démarrer, exportez vos propres `POSTGRES_PASSWORD` et `REDIS_PASSWORD` (ainsi qu'un `SESSION_SECRET` aléatoire et persistant, par exemple via `openssl rand -hex 32`) dans le shell ou un fichier `.env` placé à côté du fichier Compose ; les valeurs du fichier ne sont que des exemples. Pour une console HTTPS, définissez `SESSION_COOKIE_SECURE=true` et renseignez son origine HTTPS publique exacte dans `SESSION_COOKIE_TRUSTED_URL`.
 
 ```bash
-docker compose up -d
-docker compose logs -f new-api
+docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml logs -f api
 ```
+
+### Services
+
+[docker/docker-compose.yml](./docker/docker-compose.yml) démarre quatre services et n'expose que le service web :
+
+| Service | Rôle |
+| --- | --- |
+| `api` | Passerelle Go : API de gestion, relais, facturation, tâches d'arrière-plan |
+| `web` | Nginx sert la console compilée et relaie `/api`, `/v1`, `/v1beta`, `/mj`, `/pg` vers `api` ; exposé sur le port 3000 |
+| `pgsql` | PostgreSQL, base de données principale |
+| `redis` | Cache Redis |
+
+La console et la passerelle peuvent aussi tourner dans un seul processus, car le module Go embarque la console compilée (`docker/Dockerfile`) ; ce fichier Compose les sépare pour pouvoir les dimensionner et les remplacer indépendamment.
+
+Le fichier Compose lit `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `MYSQL_ROOT_PASSWORD` et `CLICKHOUSE_PASSWORD` dans l'environnement lorsqu'elles sont définies, sinon les valeurs d'exemple intégrées. Définissez-les dans le shell ou dans un fichier `.env` placé à côté du fichier Compose avant le déploiement.
 
 ### Stockage et configuration
 
@@ -235,39 +250,38 @@ Choisissez une version précise d'image dans les [versions publiées](https://gi
 
 ## Développement et extensions
 
-Le backend utilise Go et Gin ; la console utilise React 19, TypeScript, Rsbuild, TanStack et Tailwind CSS 4. Utilisez Bun pour le frontend. Consultez [go.mod](./go.mod) pour la version de référence du langage Go et [Dockerfile](./Dockerfile) pour la chaîne de compilation du conteneur.
+Le backend utilise Go et Gin ; la console utilise React 19, TypeScript, Rsbuild, TanStack et Tailwind CSS 4. Utilisez Bun pour le frontend. Consultez [go.mod](./backend/go.mod) pour la version de référence du langage Go et [docker/Dockerfile](./docker/Dockerfile) pour la chaîne de compilation du conteneur.
 
-Compilez le frontend avant de démarrer le backend, qui intègre `web/dist` :
+Compilez le frontend avant de démarrer le backend, qui intègre `backend/web/dist` :
 
 ```bash
 # Racine du dépôt
-cd web
-bun install --frozen-lockfile
-bun run build
-cd ..
+# compile frontend/ et copie la sortie vers backend/web/dist pour //go:embed
+make build-web
+cd backend
 go run .
 ```
 
 Dans un second terminal, démarrez le serveur de développement frontend :
 
 ```bash
-cd web
+cd frontend
 bun run dev -- --port 5173
 ```
 
-Ouvrez [http://localhost:5173](http://localhost:5173) ; les requêtes API sont relayées vers le backend sur le port 3000. Pour un backend de développement en conteneur, consultez [docker-compose.dev.yml](./docker-compose.dev.yml) et la cible `make dev` du [makefile](./makefile).
+Ouvrez [http://localhost:5173](http://localhost:5173) ; les requêtes API sont relayées vers le backend sur le port 3000. Pour un backend de développement en conteneur, consultez [docker/docker-compose.dev.yml](./docker/docker-compose.dev.yml) et la cible `make dev` du [makefile](./makefile).
 
 | Emplacement | Responsabilité |
 | --- | --- |
-| `router/`, `middleware/`, `controller/` | Routes HTTP, contrôles d'accès et gestionnaires API |
-| `relay/` | Adaptateurs amont et routage des requêtes |
-| `service/`, `model/` | Logique métier et persistance |
-| [relaykit/](./relaykit/README.md) | Module Go autonome pour les DTO et conversions de protocoles |
-| [plugins/tasks/](./plugins/tasks/) | Extensions de tâches JavaScript ; contrat et limites de l'hôte dans [Task Plugin API v1](./docs/plugin-api/v1.md) |
-| `web/` | Console web ; voir les [conventions frontend](./web/AGENTS.md) |
+| `backend/router/`, `backend/middleware/`, `backend/controller/` | Routes HTTP, contrôles d'accès et gestionnaires API |
+| `backend/relay/` | Adaptateurs amont et routage des requêtes |
+| `backend/service/`, `backend/model/` | Logique métier et persistance |
+| [backend/relaykit/](./backend/relaykit/README.md) | Module Go autonome pour les DTO et conversions de protocoles |
+| [backend/plugins/tasks/](./backend/plugins/tasks/) | Extensions de tâches JavaScript ; contrat et limites de l'hôte dans [Task Plugin API v1](./docs/plugin-api/v1.md) |
+| `frontend/` | Console web ; voir les [conventions frontend](./frontend/AGENTS.md) |
 | [electron/](./electron/README.md) | Application de bureau et packaging |
 
-Lisez [AGENTS.md](./AGENTS.md) avant de contribuer. Exécutez les vérifications adaptées : `make test` pour les modules Go ; `bun run typecheck`, `bun run lint`, `bun run test` et `bun run build` dans `web/` pour le frontend. Une modification de RelayKit nécessite aussi `GOWORK=off go build ./...` depuis `relaykit/`.
+Lisez [AGENTS.md](./AGENTS.md) avant de contribuer. Exécutez les vérifications adaptées : `make test` pour les modules Go ; `bun run typecheck`, `bun run lint`, `bun run test` et `bun run build` dans `frontend/` pour le frontend. Une modification de RelayKit nécessite aussi `GOWORK=off go build ./...` depuis `backend/relaykit/`.
 
 <a id="documentation"></a>
 

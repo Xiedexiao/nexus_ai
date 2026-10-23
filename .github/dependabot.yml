@@ -1,6 +1,6 @@
 version: 2
 updates:
   - package-ecosystem: "bun"
-    directory: "/web"
+    directory: "/frontend"
     schedule:
       interval: "weekly"

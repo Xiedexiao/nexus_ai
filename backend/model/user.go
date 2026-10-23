@@ -1064,8 +1064,9 @@ func (user *User) ValidateAndFill() (err error) {
 	if username == "" || password == "" {
 		return ErrUserEmptyCredentials
 	}
-	// find by username or email
-	err = DB.Where("username = ? OR email = ?", username, username).First(user).Error
+	// find by username or email; email is case-insensitive so an address typed
+	// with different casing still signs in (see NormalizeEmail).
+	err = DB.Where("username = ? OR LOWER(email) = ?", username, NormalizeEmail(username)).First(user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrInvalidCredentials

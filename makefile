@@ -1,7 +1,7 @@
-WEB_DIR = ./web
-API_DIR = .
+WEB_DIR = ./frontend
+API_DIR = ./backend
 DEV_WEB_PORT ?= 5173
-DEV_COMPOSE_FILE = docker-compose.dev.yml
+DEV_COMPOSE_FILE = docker/docker-compose.dev.yml
 DEV_POSTGRES_SERVICE = postgres
 DEV_API_SERVICE = new-api
 DEV_POSTGRES_DB = new-api
@@ -16,6 +16,9 @@ build-web:
 	@echo "Building web frontend..."
 	@cd $(WEB_DIR) && bun install --frozen-lockfile
 	@cd $(WEB_DIR) && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$$(cat ../VERSION) bun run build
+	@rm -rf $(API_DIR)/web/dist
+	@mkdir -p $(API_DIR)/web
+	@cp -R $(WEB_DIR)/dist $(API_DIR)/web/dist
 
 build-all-web: build-web
 
@@ -41,14 +44,14 @@ dev: dev-api dev-web
 
 # The main package embeds the ignored web/dist output and is covered after build-web.
 test:
-	@echo "Testing root Go module..."
-	@root_module=$$(GOWORK=off go list -m); \
+	@echo "Testing backend Go module..."
+	@cd $(API_DIR) && root_module=$$(GOWORK=off go list -m); \
 		root_packages=$$(GOWORK=off go list -e ./... | grep -vxF "$$root_module"); \
 		GOWORK=off go test $$root_packages
 	@echo "Testing relaykit Go module..."
-	@cd relaykit && GOWORK=off go test ./...
+	@cd $(API_DIR)/relaykit && GOWORK=off go test ./...
 	@echo "Testing tokenkit Go module..."
-	@cd tokenkit && GOWORK=off go test ./...
+	@cd $(API_DIR)/tokenkit && GOWORK=off go test ./...
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."

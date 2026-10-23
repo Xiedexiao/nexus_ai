@@ -1,24 +1,31 @@
 # Frontend Development - Backend built from local source
 #
 # Usage:
-#   1. docker compose -f docker-compose.dev.yml up -d
+#   1. docker compose -f docker/docker-compose.dev.yml up -d
 #   2. make dev-web
 #   3. Open http://localhost:5173 (Rsbuild dev server, API auto-proxied to :3000)
 #
 # Rebuild backend after Go code changes:
-#   docker compose -f docker-compose.dev.yml up -d --build new-api
+#   docker compose -f docker/docker-compose.dev.yml up -d --build new-api
 #
 # Stop:
-#   docker compose -f docker-compose.dev.yml down
+#   docker compose -f docker/docker-compose.dev.yml down
 #
 # Reset data:
-#   docker compose -f docker-compose.dev.yml down -v
+#   docker compose -f docker/docker-compose.dev.yml down -v
+
+# Keep the Compose project name stable: moving this file into docker/
+# must not rename the data volumes or the network.
+name: new-api
 
 services:
   new-api:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      args:
+        GOPROXY: ${GOPROXY_BUILD:-https://proxy.golang.org,direct}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR_BUILD:-}
     image: new-api-dev:local
     container_name: new-api-dev
     restart: unless-stopped
@@ -26,13 +33,20 @@ services:
       - "3000:3000"
     volumes:
       - dev_data:/data
+    # Same settings file as the production stack, so admin bootstrap and other
+    # variables behave identically in development.
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
-      - REDIS_CONN_STRING=redis://redis
+      - SQL_DSN=postgresql://root:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}@postgres:5432/new-api
+      - REDIS_CONN_STRING=redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in docker/.env}@redis:6379
       - TZ=Asia/Shanghai
       - BATCH_UPDATE_ENABLED=true
       # Local HTTP dev mode: keep Secure=false and leave TRUSTED_URL unset. This disables the refresh/logout OriginGuard so the :5173 -> :3000 dev proxy works.
       - SESSION_COOKIE_SECURE=false
+      # INITIAL_ROOT_USERNAME / INITIAL_ROOT_PASSWORD come from the env file
+      # above; listing them here as ${VAR} would blank them out when unset.
       # For HTTPS only: set Secure=true and list every exact trusted HTTPS browser Origin. This does not configure relay CORS.
       # - SESSION_COOKIE_SECURE=true
       # - SESSION_COOKIE_TRUSTED_URL=https://example.com,https://admin.example.com
@@ -45,19 +59,20 @@ services:
       - dev-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:7
     container_name: new-api-dev-redis
     restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in docker/.env}"]
     networks:
       - dev-network
 
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16
     container_name: new-api-dev-pg
     restart: unless-stopped
     environment:
       POSTGRES_USER: root
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
       POSTGRES_DB: new-api
     volumes:
       - dev_pg_data:/var/lib/postgresql/data

@@ -51,7 +51,7 @@
 ### 方法二：使用 Docker Compose
 
 1. 在宝塔面板中创建网站目录，如 `/www/wwwroot/new-api`
-2. 创建 `docker-compose.yml` 文件：
+2. 创建 `docker/docker-compose.yml` 文件：
 
 ```yaml
 version: '3'
