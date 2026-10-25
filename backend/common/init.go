@@ -84,11 +84,14 @@ func InitEnv() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if _, err := os.Stat(*LogDir); os.IsNotExist(err) {
-			err = os.Mkdir(*LogDir, 0777)
-			if err != nil {
-				log.Fatal(err)
-			}
+		// MkdirAll, not Mkdir: containers commonly mount a single-volume
+		// subdirectory (docker: /data) while --log-dir points elsewhere
+		// (/app/logs). When the mount is absent or misconfigured, a hard
+		// failure here crash-loops the whole gateway on every request; a
+		// warning plus stdout-only logging keeps it serving instead.
+		if err := os.MkdirAll(*LogDir, 0777); err != nil {
+			*LogDir = ""
+			log.Println(LogText("WARNING: cannot create log directory, falling back to stdout-only logging: %v", err))
 		}
 	}
 

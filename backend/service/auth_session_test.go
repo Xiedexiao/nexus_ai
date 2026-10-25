@@ -368,6 +368,20 @@ func TestLoginSessionCreateRefreshAndRevoke(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrLoginSessionRevoked))
 }
 
+func TestRefreshWithWrongSessionHeaderReturnsMismatchNotAnonymous(t *testing.T) {
+	useTestSessionSecret(t)
+	user := setupAuthSessionTestDB(t)
+
+	bundle, err := CreateLoginSession(user.Id, "password", "127.0.0.1", "header-test")
+	require.NoError(t, err)
+
+	// A refresh whose X-Auth-Session does not match the sid embedded in the
+	// token must fail with a session mismatch (409-class, recoverable), never
+	// with a bare invalid-token (401) that would log the user out.
+	_, _, err = RefreshLoginSession(bundle.RefreshToken, "mismatched-sid", "127.0.0.1", "header-test")
+	assert.ErrorIs(t, err, ErrLoginSessionMismatch)
+}
+
 func TestIndependentRedisSessionRevokeConvergesAfterCacheTTL(t *testing.T) {
 	useTestSessionSecret(t)
 	user := setupAuthSessionTestDB(t)
