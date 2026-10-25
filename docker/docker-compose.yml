@@ -21,7 +21,7 @@ services:
         required: false
     volumes:
       - ./data/api/data:/data
-      # - ./data/api/logs:/app/logs
+      - ./data/api/logs:/app/logs
     environment:
       - SQL_DSN=postgresql://root:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}@pgsql:5432/new-api
 #      - SQL_DSN=root:${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in docker/.env}@tcp(mysql:3306)/new-api  # Point to the mysql service, uncomment if using MySQL

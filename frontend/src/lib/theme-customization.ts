@@ -73,6 +73,11 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.5461 0.2152 262.88)', 'oklch(0.5854 0.2041 277.12)'],
   },
   {
+    value: 'neon-circuit',
+    name: 'Neon Circuit',
+    swatches: ['oklch(0.82 0.15 195)', 'oklch(0.68 0.18 300)'],
+  },
+  {
     value: 'lavender-dream',
     name: 'Lavender Dream',
     swatches: ['oklch(0.5709 0.1808 306.89)', 'oklch(0.811 0.0589 201.14)'],
