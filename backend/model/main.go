@@ -69,10 +69,6 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
-// maxBootstrapUsernameLength mirrors the setup wizard's username bound so both
-// ways of creating the first administrator accept the same accounts.
-const maxBootstrapUsernameLength = 12
-
 // BootstrapRootAccountFromEnv creates the first administrator from
 // INITIAL_ROOT_USERNAME, INITIAL_ROOT_PASSWORD and the optional
 // INITIAL_ROOT_EMAIL. It only acts when no root user exists, so a running
@@ -96,8 +92,8 @@ func BootstrapRootAccountFromEnv() error {
 	if username == "" || password == "" {
 		return errors.New("INITIAL_ROOT_USERNAME and INITIAL_ROOT_PASSWORD must be set together")
 	}
-	if len([]rune(username)) > maxBootstrapUsernameLength {
-		return fmt.Errorf("INITIAL_ROOT_USERNAME must be %d characters or fewer", maxBootstrapUsernameLength)
+	if len([]rune(username)) > MaxUsernameLength {
+		return fmt.Errorf("INITIAL_ROOT_USERNAME must be %d characters or fewer", MaxUsernameLength)
 	}
 	if email != "" {
 		if _, err := mail.ParseAddress(email); err != nil {
@@ -118,7 +114,8 @@ func BootstrapRootAccountFromEnv() error {
 		Role:        common.RoleRootUser,
 		Status:      common.UserStatusEnabled,
 		DisplayName: "Root User",
-		Quota:       100000000,
+		AffCode:     common.GetRandomString(4),
+		Quota:       common.QuotaForRootUser,
 	}
 	if err := DB.Create(&rootUser).Error; err != nil {
 		return fmt.Errorf("create the initial administrator: %w", err)

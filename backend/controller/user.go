@@ -239,6 +239,27 @@ func Register(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid input {{error}}", map[string]any{"error": err.Error()})
 		return
 	}
+	// Enforced before any verification-code work so a capped network cannot
+	// spend email codes; see EnsureRegistrationIpAllowed for the semantics.
+	registrationIp := c.ClientIP()
+	if err := model.EnsureRegistrationIpAllowed(registrationIp); err != nil {
+		if errors.Is(err, model.ErrRegistrationIpLimitReached) {
+			common.SysLog(common.LogText("registration from %s rejected: per-IP account limit reached", registrationIp))
+			common.ApiErrorT(c, "Too many accounts registered from this network")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.EnsureRegistrationWindowAllowed(); err != nil {
+		if errors.Is(err, model.ErrRegistrationWindowReached) {
+			common.SysLog(common.LogText("registration rejected: window limit of %d reached", common.RegistrationWindowLimit))
+			common.ApiErrorT(c, "Too many registrations in a short time, please try again later")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
 	if common.EmailVerificationEnabled {
 		if user.Email == "" || user.VerificationCode == "" {
 			common.ApiErrorT(c, "Email verification is enabled, please enter email address and verification code")
@@ -278,6 +299,7 @@ func Register(c *gin.Context) {
 		Password:    user.Password,
 		DisplayName: user.Username,
 		InviterId:   inviterId,
+		RegisterIp:  registrationIp,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
 	}
 	if common.EmailVerificationEnabled {

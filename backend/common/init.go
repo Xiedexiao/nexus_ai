@@ -58,6 +58,13 @@ func InitEnv() {
 		} else {
 			SessionSecret = ss
 		}
+	} else {
+		// The per-process random fallback keeps single-node setups working, but
+		// every node then signs with a different secret: sign-in state and
+		// CRYPTO_SECRET-backed artifacts (task artifact URLs, login-password
+		// envelopes) valid on one node fail on the others, and a restart logs
+		// everyone out. That failure is silent downstream, so surface it here.
+		log.Println(LogText("WARNING: SESSION_SECRET is not set; a random per-process secret is in use. Refresh tokens and signed artifacts are invalidated on every restart, and multiple nodes cannot verify each other's signatures. Set the same SESSION_SECRET on all nodes."))
 	}
 	if os.Getenv("CRYPTO_SECRET") != "" {
 		CryptoSecret = os.Getenv("CRYPTO_SECRET")
@@ -90,6 +97,9 @@ func InitEnv() {
 	MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
 	PasswordLoginEncryptionEnabled = GetEnvOrDefaultBool("PASSWORD_LOGIN_ENCRYPTION_ENABLED", false)
+	RegistrationIpLimit = GetEnvOrDefault("REGISTRATION_IP_LIMIT", 0)
+	RegistrationWindowLimit = GetEnvOrDefault("REGISTRATION_WINDOW_LIMIT", 0)
+	RegistrationWindowMinutes = GetEnvOrDefault("REGISTRATION_WINDOW_MINUTES", 60)
 	initNodeNameIdentity()
 	TLSInsecureSkipVerify = GetEnvOrDefaultBool("TLS_INSECURE_SKIP_VERIFY", false)
 	if TLSInsecureSkipVerify {

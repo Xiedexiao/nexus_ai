@@ -76,42 +76,53 @@ func resolveUserSortOptions(sortOptions []UserSortOptions) UserSortOptions {
 
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
+
+// MaxUsernameLength is the single source of truth for username length. The
+// setup wizard, the environment bootstrap, and the validator tag below must
+// agree; drifting limits let an account pass one path and fail another.
+const MaxUsernameLength = 12
+
 type User struct {
-	Id                   int                        `json:"id"`
-	Username             string                     `json:"username" gorm:"unique;index" validate:"max=20"`
-	Password             string                     `json:"password" gorm:"not null;" validate:"min=8,max=128"`
-	HasPassword          bool                       `json:"-" gorm:"-:all"`
-	OriginalPassword     string                     `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
-	DisplayName          string                     `json:"display_name" gorm:"index" validate:"max=20"`
-	Role                 int                        `json:"role" gorm:"type:int;default:1"`   // admin, common
-	Status               int                        `json:"status" gorm:"type:int;default:1"` // enabled, disabled
-	Email                string                     `json:"email" gorm:"index" validate:"max=50"`
-	GitHubId             string                     `json:"github_id" gorm:"column:github_id;index"`
-	DiscordId            string                     `json:"discord_id" gorm:"column:discord_id;index"`
-	OidcId               string                     `json:"oidc_id" gorm:"column:oidc_id;index"`
-	WeChatId             string                     `json:"wechat_id" gorm:"column:wechat_id;index"`
-	TelegramId           string                     `json:"telegram_id" gorm:"column:telegram_id;index"`
-	VerificationCode     string                     `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
-	AccessToken          *string                    `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
-	AccessTokenCreatedAt *int64                     `json:"-" gorm:"type:bigint;column:access_token_created_at"`    // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
-	Quota                int                        `json:"quota" gorm:"type:int;default:0"`
-	UsedQuota            int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount         int                        `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group                string                     `json:"group" gorm:"type:varchar(64);default:'default'"`
-	AffCode              string                     `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
-	AffCount             int                        `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
-	AffQuota             int                        `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
-	AffHistoryQuota      int                        `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
-	InviterId            int                        `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
-	DeletedAt            gorm.DeletedAt             `gorm:"index"`
-	LinuxDOId            string                     `json:"linux_do_id" gorm:"column:linux_do_id;index"`
-	Setting              string                     `json:"setting" gorm:"type:text;column:setting"`
-	Remark               string                     `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
-	StripeCustomer       string                     `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
-	CreatedAt            int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
-	LastLoginAt          int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
-	AuthVersion          int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
-	AdminPermissions     map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
+	Id                   int     `json:"id"`
+	Username             string  `json:"username" gorm:"unique;index" validate:"max=12"`
+	Password             string  `json:"password" gorm:"not null;" validate:"min=8,max=128"`
+	HasPassword          bool    `json:"-" gorm:"-:all"`
+	OriginalPassword     string  `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
+	DisplayName          string  `json:"display_name" gorm:"index" validate:"max=20"`
+	Role                 int     `json:"role" gorm:"type:int;default:1"`   // admin, common
+	Status               int     `json:"status" gorm:"type:int;default:1"` // enabled, disabled
+	Email                string  `json:"email" gorm:"index" validate:"max=50"`
+	GitHubId             string  `json:"github_id" gorm:"column:github_id;index"`
+	DiscordId            string  `json:"discord_id" gorm:"column:discord_id;index"`
+	OidcId               string  `json:"oidc_id" gorm:"column:oidc_id;index"`
+	WeChatId             string  `json:"wechat_id" gorm:"column:wechat_id;index"`
+	TelegramId           string  `json:"telegram_id" gorm:"column:telegram_id;index"`
+	VerificationCode     string  `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
+	AccessToken          *string `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
+	AccessTokenCreatedAt *int64  `json:"-" gorm:"type:bigint;column:access_token_created_at"`    // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
+	Quota                int     `json:"quota" gorm:"type:int;default:0"`
+	UsedQuota            int     `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
+	RequestCount         int     `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	Group                string  `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// RegisterIp records where self-service sign-up (password or OAuth) came
+	// from, so the per-IP account limit can be counted from the database. It
+	// is never serialized back to clients and stays empty for accounts created
+	// by the setup wizard, the environment bootstrap, or an administrator.
+	RegisterIp       string                     `json:"-" gorm:"type:varchar(64);column:register_ip;index"`
+	AffCode          string                     `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
+	AffCount         int                        `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
+	AffQuota         int                        `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
+	AffHistoryQuota  int                        `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
+	InviterId        int                        `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	DeletedAt        gorm.DeletedAt             `gorm:"index"`
+	LinuxDOId        string                     `json:"linux_do_id" gorm:"column:linux_do_id;index"`
+	Setting          string                     `json:"setting" gorm:"type:text;column:setting"`
+	Remark           string                     `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
+	StripeCustomer   string                     `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	CreatedAt        int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at;index"`
+	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
+	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
+	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -352,6 +363,54 @@ func EnsureEmailAvailable(email string, excludeUserID int) error {
 	}
 	if !available {
 		return ErrEmailAlreadyTaken
+	}
+	return nil
+}
+
+// EnsureRegistrationIpAllowed reports whether one more account may be
+// registered from ip under common.RegistrationIpLimit. The count comes from
+// the users table, so the limit holds across restarts and nodes; accounts
+// without a recorded registration IP (created before the column existed, or
+// by an administrator) never count against any address.
+//
+// The check is a read-then-insert guard without a row lock: a burst of
+// perfectly concurrent sign-ups from one address can slip a few accounts past
+// the limit. The registration routes sit behind CriticalRateLimit, and this
+// control exists to stop bulk self-registration, not to bound an exact total,
+// so that trade-off keeps the hot path lock-free.
+func EnsureRegistrationIpAllowed(ip string) error {
+	if ip == "" || common.RegistrationIpLimit <= 0 {
+		return nil
+	}
+	var count int64
+	if err := DB.Model(&User{}).Where("register_ip = ?", ip).Count(&count).Error; err != nil {
+		return fmt.Errorf("%w: count registrations for ip: %v", ErrDatabase, err)
+	}
+	if count >= int64(common.RegistrationIpLimit) {
+		return ErrRegistrationIpLimitReached
+	}
+	return nil
+}
+
+// EnsureRegistrationWindowAllowed reports whether one more self-service account
+// may be created now under the deployment-wide window cap. It counts users
+// created since the window opened whose register_ip is set, so only self-service
+// sign-ups are counted: accounts created by an administrator, the setup wizard,
+// or the environment bootstrap never consume window capacity, and neither do
+// rows that predate the register_ip column. Same read-then-insert trade-off as
+// EnsureRegistrationIpAllowed: the register routes sit behind CriticalRateLimit
+// and this cap steers load, not an exact total.
+func EnsureRegistrationWindowAllowed() error {
+	if common.RegistrationWindowLimit <= 0 || common.RegistrationWindowMinutes <= 0 {
+		return nil
+	}
+	cutoff := common.GetTimestamp() - int64(common.RegistrationWindowMinutes)*60
+	var count int64
+	if err := DB.Model(&User{}).Where("register_ip IS NOT NULL AND register_ip <> '' AND created_at >= ?", cutoff).Count(&count).Error; err != nil {
+		return fmt.Errorf("%w: count registrations in window: %v", ErrDatabase, err)
+	}
+	if count >= int64(common.RegistrationWindowLimit) {
+		return ErrRegistrationWindowReached
 	}
 	return nil
 }
@@ -672,6 +731,33 @@ func ensureEmailAvailableWithTx(tx *gorm.DB, email string, excludeUserID int) er
 	return nil
 }
 
+// affCodeRetryLimit bounds the collision retry below. A 4-character alphanumeric
+// code has ~14.8M combinations, so by ~4.5k users a fresh code collides with
+// even odds; without a retry the whole sign-up failed with a raw UNIQUE error.
+const affCodeRetryLimit = 5
+
+// assignUniqueAffCode generates an unused invitation code. It checks existing
+// codes first and retries the few times a birthday collision needs; the final
+// insert is still guarded by the unique index, so the worst case is an error
+// instead of a duplicate.
+func assignUniqueAffCode(tx *gorm.DB, user *User) error {
+	for attempt := 0; attempt < affCodeRetryLimit; attempt++ {
+		code := common.GetRandomString(4)
+		var count int64
+		if err := tx.Unscoped().Model(&User{}).Where("aff_code = ?", code).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			user.AffCode = code
+			return nil
+		}
+	}
+	// Practically unreachable; let the unique index report it rather than
+	// looping longer under lock.
+	user.AffCode = common.GetRandomString(4)
+	return nil
+}
+
 func (user *User) Insert(inviterId int) error {
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		return withNormalizedEmailLock(tx, user.Email, func(tx *gorm.DB) error {
@@ -679,7 +765,9 @@ func (user *User) Insert(inviterId int) error {
 				return err
 			}
 			user.Quota = common.QuotaForNewUser
-			user.AffCode = common.GetRandomString(4)
+			if err := assignUniqueAffCode(tx, user); err != nil {
+				return err
+			}
 
 			// 初始化用户设置，包括默认的边栏配置
 			if user.Setting == "" {
@@ -743,7 +831,9 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 			return err
 		}
 		user.Quota = common.QuotaForNewUser
-		user.AffCode = common.GetRandomString(4)
+		if err := assignUniqueAffCode(tx, user); err != nil {
+			return err
+		}
 
 		// 初始化用户设置
 		if user.Setting == "" {

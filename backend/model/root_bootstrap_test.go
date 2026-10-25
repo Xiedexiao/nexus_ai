@@ -126,6 +126,17 @@ func TestBootstrapRootAccountFromEnv(t *testing.T) {
 		assert.Equal(t, user.Id, byEmail.Id)
 	})
 
+	t.Run("assigns a non-empty aff code so the unique index stays usable", func(t *testing.T) {
+		clearUsers(t)
+		setBootstrapEnv(t, "root-admin", "bootstrap-password-1")
+
+		require.NoError(t, BootstrapRootAccountFromEnv())
+
+		var user User
+		require.NoError(t, DB.Where("username = ?", "root-admin").First(&user).Error)
+		assert.Len(t, user.AffCode, 4)
+	})
+
 	t.Run("leaves the email empty when it is not configured", func(t *testing.T) {
 		clearUsers(t)
 		setBootstrapEnv(t, "root-admin", "bootstrap-password-1")

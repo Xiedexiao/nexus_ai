@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -77,6 +78,43 @@ func InitOptionMap() {
 	common.OptionMap["SMTPStartTLSEnabled"] = strconv.FormatBool(common.SMTPStartTLSEnabled)
 	common.OptionMap["SMTPInsecureSkipVerify"] = strconv.FormatBool(common.SMTPInsecureSkipVerify)
 	common.OptionMap["SMTPForceAuthLogin"] = strconv.FormatBool(common.SMTPForceAuthLogin)
+	// Relay and streaming timeouts: the environment variable seeds the default
+	// at startup, and an option row saved from the console overrides it from
+	// then on, so the values below register whatever the current seed is.
+	common.OptionMap["RelayTimeout"] = strconv.Itoa(common.RelayTimeout)
+	common.OptionMap["RelayIdleConnTimeout"] = strconv.Itoa(common.RelayIdleConnTimeout)
+	common.OptionMap["RelayResponseHeaderTimeout"] = strconv.Itoa(common.RelayResponseHeaderTimeout)
+	common.OptionMap["RelayMaxIdleConns"] = strconv.Itoa(common.RelayMaxIdleConns)
+	common.OptionMap["RelayMaxIdleConnsPerHost"] = strconv.Itoa(common.RelayMaxIdleConnsPerHost)
+	common.OptionMap["StreamingTimeout"] = strconv.Itoa(constant.StreamingTimeout)
+	// Global rate limits, background-task policies, and the verification-code
+	// validity: same seeding rule as the timeouts above (environment variable
+	// seeds, a saved console value wins from then on).
+	common.OptionMap["GlobalApiRateLimitEnable"] = strconv.FormatBool(common.GlobalApiRateLimitEnable)
+	common.OptionMap["GlobalApiRateLimitNum"] = strconv.Itoa(common.GlobalApiRateLimitNum)
+	common.OptionMap["GlobalApiRateLimitDuration"] = strconv.FormatInt(common.GlobalApiRateLimitDuration, 10)
+	common.OptionMap["GlobalWebRateLimitEnable"] = strconv.FormatBool(common.GlobalWebRateLimitEnable)
+	common.OptionMap["GlobalWebRateLimitNum"] = strconv.Itoa(common.GlobalWebRateLimitNum)
+	common.OptionMap["GlobalWebRateLimitDuration"] = strconv.FormatInt(common.GlobalWebRateLimitDuration, 10)
+	common.OptionMap["GlobalStaticRateLimitEnable"] = strconv.FormatBool(common.GlobalStaticRateLimitEnable)
+	common.OptionMap["GlobalStaticRateLimitNum"] = strconv.Itoa(common.GlobalStaticRateLimitNum)
+	common.OptionMap["GlobalStaticRateLimitDuration"] = strconv.FormatInt(common.GlobalStaticRateLimitDuration, 10)
+	common.OptionMap["CriticalRateLimitEnable"] = strconv.FormatBool(common.CriticalRateLimitEnable)
+	common.OptionMap["CriticalRateLimitNum"] = strconv.Itoa(common.CriticalRateLimitNum)
+	common.OptionMap["CriticalRateLimitDuration"] = strconv.FormatInt(common.CriticalRateLimitDuration, 10)
+	common.OptionMap["SearchRateLimitEnable"] = strconv.FormatBool(common.SearchRateLimitEnable)
+	common.OptionMap["SearchRateLimitNum"] = strconv.Itoa(common.SearchRateLimitNum)
+	common.OptionMap["SearchRateLimitDuration"] = strconv.FormatInt(common.SearchRateLimitDuration, 10)
+	common.OptionMap["UploadRateLimitNum"] = strconv.Itoa(common.UploadRateLimitNum)
+	common.OptionMap["UploadRateLimitDuration"] = strconv.FormatInt(common.UploadRateLimitDuration, 10)
+	common.OptionMap["DownloadRateLimitNum"] = strconv.Itoa(common.DownloadRateLimitNum)
+	common.OptionMap["DownloadRateLimitDuration"] = strconv.FormatInt(common.DownloadRateLimitDuration, 10)
+	common.OptionMap["TaskTimeoutMinutes"] = strconv.Itoa(constant.TaskTimeoutMinutes)
+	common.OptionMap["TaskPollMaxFailures"] = strconv.Itoa(constant.TaskPollMaxFailures)
+	common.OptionMap["VerificationValidMinutes"] = strconv.Itoa(common.VerificationValidMinutes)
+	common.OptionMap["RegistrationIpLimit"] = strconv.Itoa(common.RegistrationIpLimit)
+	common.OptionMap["RegistrationWindowLimit"] = strconv.Itoa(common.RegistrationWindowLimit)
+	common.OptionMap["RegistrationWindowMinutes"] = strconv.Itoa(common.RegistrationWindowMinutes)
 	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
@@ -234,6 +272,21 @@ func SyncOptions(frequency int) {
 func validateOptionValue(key string, value string) error {
 	if key == legacyAccessTokenRetireAtKey {
 		return errLegacyRetireAtReadOnly
+	}
+	if max, ok := relayTimeoutOptionBounds[key]; ok {
+		v, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || v < 0 || v > int64(max) {
+			return fmt.Errorf("%s must be an integer between 0 and %d", key, max)
+		}
+	}
+	if bounds, ok := adminTunableIntBounds[key]; ok {
+		v, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || v < int64(bounds[0]) || v > int64(bounds[1]) {
+			return fmt.Errorf("%s must be an integer between %d and %d", key, bounds[0], bounds[1])
+		}
+	}
+	if _, ok := adminTunableBoolOptions[key]; ok && value != "true" && value != "false" {
+		return fmt.Errorf("%s must be true or false", key)
 	}
 	if err := operation_setting.ValidateQuotaOption(key, value); err != nil {
 		return err
@@ -511,6 +564,120 @@ func updateOptionMap(key string, value string) (err error) {
 		common.SMTPFrom = value
 	case "SMTPToken":
 		common.SMTPToken = value
+	case "RelayTimeout":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayTimeoutSeconds); ok {
+			common.RelayTimeout = v
+		}
+	case "RelayIdleConnTimeout":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayTimeoutSeconds); ok {
+			common.RelayIdleConnTimeout = v
+		}
+	case "RelayResponseHeaderTimeout":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayTimeoutSeconds); ok {
+			common.RelayResponseHeaderTimeout = v
+		}
+	case "RelayMaxIdleConns":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayIdleConns); ok {
+			common.RelayMaxIdleConns = v
+		}
+	case "RelayMaxIdleConnsPerHost":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayIdleConns); ok {
+			common.RelayMaxIdleConnsPerHost = v
+		}
+	case "StreamingTimeout":
+		if v, ok := parseClampedNonNegativeInt(value, maxRelayTimeoutSeconds); ok {
+			constant.StreamingTimeout = v
+		}
+	case "GlobalApiRateLimitEnable":
+		common.GlobalApiRateLimitEnable = value == "true"
+	case "GlobalApiRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.GlobalApiRateLimitNum = v
+		}
+	case "GlobalApiRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.GlobalApiRateLimitDuration = int64(v)
+		}
+	case "GlobalWebRateLimitEnable":
+		common.GlobalWebRateLimitEnable = value == "true"
+	case "GlobalWebRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.GlobalWebRateLimitNum = v
+		}
+	case "GlobalWebRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.GlobalWebRateLimitDuration = int64(v)
+		}
+	case "GlobalStaticRateLimitEnable":
+		common.GlobalStaticRateLimitEnable = value == "true"
+	case "GlobalStaticRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.GlobalStaticRateLimitNum = v
+		}
+	case "GlobalStaticRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.GlobalStaticRateLimitDuration = int64(v)
+		}
+	case "CriticalRateLimitEnable":
+		common.CriticalRateLimitEnable = value == "true"
+	case "CriticalRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.CriticalRateLimitNum = v
+		}
+	case "CriticalRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.CriticalRateLimitDuration = int64(v)
+		}
+	case "SearchRateLimitEnable":
+		common.SearchRateLimitEnable = value == "true"
+	case "SearchRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.SearchRateLimitNum = v
+		}
+	case "SearchRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.SearchRateLimitDuration = int64(v)
+		}
+	case "UploadRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.UploadRateLimitNum = v
+		}
+	case "UploadRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.UploadRateLimitDuration = int64(v)
+		}
+	case "DownloadRateLimitNum":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitCount); ok {
+			common.DownloadRateLimitNum = v
+		}
+	case "DownloadRateLimitDuration":
+		if v, ok := parseClampedNonNegativeInt(value, maxRateLimitDurationSeconds); ok {
+			common.DownloadRateLimitDuration = int64(v)
+		}
+	case "TaskTimeoutMinutes":
+		if v, ok := parseClampedNonNegativeInt(value, maxTaskTimeoutMinutes); ok {
+			constant.TaskTimeoutMinutes = v
+		}
+	case "TaskPollMaxFailures":
+		if v, ok := parseClampedNonNegativeInt(value, maxTaskPollFailures); ok {
+			constant.TaskPollMaxFailures = v
+		}
+	case "VerificationValidMinutes":
+		if v, ok := parseClampedNonNegativeInt(value, maxVerificationValidMinutes); ok {
+			common.VerificationValidMinutes = v
+		}
+	case "RegistrationIpLimit":
+		if v, ok := parseClampedNonNegativeInt(value, maxRegistrationIpLimit); ok {
+			common.RegistrationIpLimit = v
+		}
+	case "RegistrationWindowLimit":
+		if v, ok := parseClampedNonNegativeInt(value, maxRegistrationWindowLimit); ok {
+			common.RegistrationWindowLimit = v
+		}
+	case "RegistrationWindowMinutes":
+		if v, ok := parseClampedNonNegativeInt(value, maxRegistrationWindowMinutes); ok {
+			common.RegistrationWindowMinutes = v
+		}
 	case "ServerAddress":
 		system_setting.ServerAddress = value
 	case "TaskPublicAddress":
@@ -747,4 +914,92 @@ func handleConfigUpdate(key, value string) bool {
 	}
 
 	return true // 已处理
+}
+
+// Bounds for the admin-managed relay and streaming timeout options. They match
+// the clamps the HTTP client applies when building transports, so a value
+// saved in the console can never overflow a time.Duration downstream.
+const (
+	maxRelayTimeoutSeconds = 1 << 31
+	maxRelayIdleConns      = 1 << 24
+)
+
+// relayTimeoutOptionBounds maps every console-managed relay knob to its upper
+// bound so validateOptionValue rejects out-of-range input before it is stored;
+// the clamp in updateOptionMap remains as a backstop for rows already in the
+// database.
+var relayTimeoutOptionBounds = map[string]int{
+	"RelayTimeout":               maxRelayTimeoutSeconds,
+	"RelayIdleConnTimeout":       maxRelayTimeoutSeconds,
+	"RelayResponseHeaderTimeout": maxRelayTimeoutSeconds,
+	"RelayMaxIdleConns":          maxRelayIdleConns,
+	"RelayMaxIdleConnsPerHost":   maxRelayIdleConns,
+	"StreamingTimeout":           maxRelayTimeoutSeconds,
+}
+
+// Bounds for the console-managed rate-limit, task, and verification options.
+// Zero means "disabled" for TaskTimeoutMinutes and TaskPollMaxFailures.
+const (
+	maxRateLimitCount            = 100000000
+	maxRateLimitDurationSeconds  = 30 * 24 * 3600
+	maxTaskTimeoutMinutes        = 366 * 24 * 60
+	maxTaskPollFailures          = 100000
+	maxVerificationValidMinutes  = 24 * 60
+	maxRegistrationIpLimit       = 1000000
+	maxRegistrationWindowLimit   = 1000000
+	maxRegistrationWindowMinutes = 366 * 24 * 60
+)
+
+// adminTunableIntBounds maps each console-managed integer knob to its accepted
+// [min, max] range; validateOptionValue rejects anything outside it, and the
+// clamps in updateOptionMap stay as a backstop for legacy database rows.
+var adminTunableIntBounds = map[string][2]int{
+	"GlobalApiRateLimitNum":         {1, maxRateLimitCount},
+	"GlobalApiRateLimitDuration":    {1, maxRateLimitDurationSeconds},
+	"GlobalWebRateLimitNum":         {1, maxRateLimitCount},
+	"GlobalWebRateLimitDuration":    {1, maxRateLimitDurationSeconds},
+	"GlobalStaticRateLimitNum":      {1, maxRateLimitCount},
+	"GlobalStaticRateLimitDuration": {1, maxRateLimitDurationSeconds},
+	"CriticalRateLimitNum":          {1, maxRateLimitCount},
+	"CriticalRateLimitDuration":     {1, maxRateLimitDurationSeconds},
+	"SearchRateLimitNum":            {1, maxRateLimitCount},
+	"SearchRateLimitDuration":       {1, maxRateLimitDurationSeconds},
+	"UploadRateLimitNum":            {1, maxRateLimitCount},
+	"UploadRateLimitDuration":       {1, maxRateLimitDurationSeconds},
+	"DownloadRateLimitNum":          {1, maxRateLimitCount},
+	"DownloadRateLimitDuration":     {1, maxRateLimitDurationSeconds},
+	"TaskTimeoutMinutes":            {0, maxTaskTimeoutMinutes},
+	"TaskPollMaxFailures":           {0, maxTaskPollFailures},
+	"VerificationValidMinutes":      {1, maxVerificationValidMinutes},
+	"RegistrationIpLimit":           {0, maxRegistrationIpLimit},
+	"RegistrationWindowLimit":       {0, maxRegistrationWindowLimit},
+	"RegistrationWindowMinutes":     {1, maxRegistrationWindowMinutes},
+}
+
+// adminTunableBoolOptions are the console-managed boolean switches; anything
+// other than a canonical true/false is rejected.
+var adminTunableBoolOptions = map[string]bool{
+	"GlobalApiRateLimitEnable":    true,
+	"GlobalWebRateLimitEnable":    true,
+	"GlobalStaticRateLimitEnable": true,
+	"CriticalRateLimitEnable":     true,
+	"SearchRateLimitEnable":       true,
+}
+
+// parseClampedNonNegativeInt parses a console-entered integer inside its
+// supported range; zero means "disabled" for every key that uses these bounds.
+// Values beyond int range are clamped, not rejected, and non-numeric input
+// reports !ok so the caller leaves the current value untouched.
+func parseClampedNonNegativeInt(value string, max int) (int, bool) {
+	v, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	if v < 0 {
+		return 0, true
+	}
+	if v > int64(max) {
+		return max, true
+	}
+	return int(v), true
 }

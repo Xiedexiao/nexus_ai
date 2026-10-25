@@ -130,6 +130,24 @@ var TelegramBotName = ""
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0
+
+// RegistrationIpLimit caps how many accounts may self-register (password or
+// OAuth) from a single IP address; 0 disables the cap. Seeded from the
+// REGISTRATION_IP_LIMIT environment variable and then console-managed.
+var RegistrationIpLimit = 0
+
+// RegistrationWindowLimit caps how many self-service accounts may be created
+// across the whole deployment within RegistrationWindowMinutes; 0 disables the
+// cap. Seeded from REGISTRATION_WINDOW_LIMIT and then console-managed.
+var RegistrationWindowLimit = 0
+var RegistrationWindowMinutes = 60
+
+// QuotaForRootUser is the starting balance of the first administrator created
+// by the setup wizard or the INITIAL_ROOT_* environment bootstrap. The wizard
+// and the bootstrap must share one constant so the two entry points cannot
+// drift apart.
+const QuotaForRootUser = 100000000
+
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

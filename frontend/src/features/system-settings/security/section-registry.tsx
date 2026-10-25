@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { GlobalRateLimitSection } from '../request-limits/global-rate-limit-section'
 import { RateLimitSection } from '../request-limits/rate-limit-section'
 import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
@@ -41,6 +42,35 @@ const SECURITY_SECTIONS = [
     ),
   },
 
+  {
+    id: 'global-rate-limits',
+    titleKey: 'Global rate limits',
+    build: (settings: SecuritySettings) => (
+      <GlobalRateLimitSection
+        defaultValues={{
+          GlobalApiRateLimitEnable: settings.GlobalApiRateLimitEnable,
+          GlobalApiRateLimitNum: settings.GlobalApiRateLimitNum,
+          GlobalApiRateLimitDuration: settings.GlobalApiRateLimitDuration,
+          GlobalWebRateLimitEnable: settings.GlobalWebRateLimitEnable,
+          GlobalWebRateLimitNum: settings.GlobalWebRateLimitNum,
+          GlobalWebRateLimitDuration: settings.GlobalWebRateLimitDuration,
+          GlobalStaticRateLimitEnable: settings.GlobalStaticRateLimitEnable,
+          GlobalStaticRateLimitNum: settings.GlobalStaticRateLimitNum,
+          GlobalStaticRateLimitDuration: settings.GlobalStaticRateLimitDuration,
+          CriticalRateLimitEnable: settings.CriticalRateLimitEnable,
+          CriticalRateLimitNum: settings.CriticalRateLimitNum,
+          CriticalRateLimitDuration: settings.CriticalRateLimitDuration,
+          SearchRateLimitEnable: settings.SearchRateLimitEnable,
+          SearchRateLimitNum: settings.SearchRateLimitNum,
+          SearchRateLimitDuration: settings.SearchRateLimitDuration,
+          UploadRateLimitNum: settings.UploadRateLimitNum,
+          UploadRateLimitDuration: settings.UploadRateLimitDuration,
+          DownloadRateLimitNum: settings.DownloadRateLimitNum,
+          DownloadRateLimitDuration: settings.DownloadRateLimitDuration,
+        }}
+      />
+    ),
+  },
   {
     id: 'ssrf',
     titleKey: 'SSRF Protection',

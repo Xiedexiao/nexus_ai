@@ -18,6 +18,7 @@ func flushLoop() {
 			continue
 		}
 		flushCompletedBuckets()
+		deleteStaleEmptyBuckets()
 		cleanupExpiredMetrics(setting.RetentionDays)
 	}
 }
@@ -33,7 +34,10 @@ func flushCompletedBuckets() {
 		bucket := value.(*atomicBucket)
 		drained := bucket.drain()
 		if drained.requestCount == 0 {
-			deleteOldEmptyBucket(k, key)
+			// Either already flushed or never written; once the bucket is past
+			// its hour nothing can land in it anymore, so drop it instead of
+			// letting drained shells accumulate for another day.
+			hotBuckets.Delete(key)
 			return true
 		}
 
@@ -55,15 +59,25 @@ func flushCompletedBuckets() {
 			return true
 		}
 
-		deleteOldEmptyBucket(k, key)
+		// Flushed successfully; a completed bucket can no longer receive
+		// samples (Record only writes to the current hour), so keeping it in
+		// the map only grows memory with model×group×hours cardinality.
+		hotBuckets.Delete(key)
 		return true
 	})
 }
 
-func deleteOldEmptyBucket(k bucketKey, rawKey any) {
-	if k.bucketTs < bucketStart(time.Now().Add(-24*time.Hour).Unix()) {
-		hotBuckets.Delete(rawKey)
-	}
+// deleteStaleEmptyBuckets removes buckets that stayed empty for over a day,
+// covering flushes that kept failing for that long.
+func deleteStaleEmptyBuckets() {
+	cutoff := bucketStart(time.Now().Add(-24 * time.Hour).Unix())
+	hotBuckets.Range(func(key, value any) bool {
+		k := key.(bucketKey)
+		if k.bucketTs < cutoff && value.(*atomicBucket).requestCount.Load() == 0 {
+			hotBuckets.Delete(key)
+		}
+		return true
+	})
 }
 
 func cleanupExpiredMetrics(retentionDays int) {

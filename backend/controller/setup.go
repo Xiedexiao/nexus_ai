@@ -62,9 +62,9 @@ func PostSetup(c *gin.Context) {
 
 	// If root doesn't exist, validate and create admin account
 	if !rootExists {
-		// Validate username length: max 12 characters to align with model.User validation
-		if len(req.Username) > 12 {
-			common.ApiErrorT(c, "Username must be {{max}} characters or fewer", map[string]any{"max": 12})
+		// Validate username length against the shared model limit.
+		if len(req.Username) > model.MaxUsernameLength {
+			common.ApiErrorT(c, "Username must be {{max}} characters or fewer", map[string]any{"max": model.MaxUsernameLength})
 			return
 		}
 		// Validate password
@@ -93,8 +93,9 @@ func PostSetup(c *gin.Context) {
 			Role:        common.RoleRootUser,
 			Status:      common.UserStatusEnabled,
 			DisplayName: "Root User",
+			AffCode:     common.GetRandomString(4),
 			AccessToken: nil,
-			Quota:       100000000,
+			Quota:       common.QuotaForRootUser,
 		}
 		err = model.DB.Create(&rootUser).Error
 		if err != nil {

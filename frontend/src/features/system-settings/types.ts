@@ -164,6 +164,9 @@ export type AuthSettings = {
   EmailDomainRestrictionEnabled: boolean
   EmailAliasRestrictionEnabled: boolean
   EmailDomainWhitelist: string
+  RegistrationIpLimit: number
+  RegistrationWindowLimit: number
+  RegistrationWindowMinutes: number
   ServerAddress: string
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
@@ -376,6 +379,15 @@ export type OperationsSettings = {
   SMTPStartTLSEnabled: boolean
   SMTPInsecureSkipVerify: boolean
   SMTPForceAuthLogin: boolean
+  RelayTimeout: number
+  RelayIdleConnTimeout: number
+  RelayResponseHeaderTimeout: number
+  RelayMaxIdleConns: number
+  RelayMaxIdleConnsPerHost: number
+  StreamingTimeout: number
+  TaskTimeoutMinutes: number
+  TaskPollMaxFailures: number
+  VerificationValidMinutes: number
   WorkerUrl: string
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
@@ -414,6 +426,25 @@ export type SecuritySettings = {
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
+  GlobalApiRateLimitEnable: boolean
+  GlobalApiRateLimitNum: number
+  GlobalApiRateLimitDuration: number
+  GlobalWebRateLimitEnable: boolean
+  GlobalWebRateLimitNum: number
+  GlobalWebRateLimitDuration: number
+  GlobalStaticRateLimitEnable: boolean
+  GlobalStaticRateLimitNum: number
+  GlobalStaticRateLimitDuration: number
+  CriticalRateLimitEnable: boolean
+  CriticalRateLimitNum: number
+  CriticalRateLimitDuration: number
+  SearchRateLimitEnable: boolean
+  SearchRateLimitNum: number
+  SearchRateLimitDuration: number
+  UploadRateLimitNum: number
+  UploadRateLimitDuration: number
+  DownloadRateLimitNum: number
+  DownloadRateLimitDuration: number
 }
 
 export type UpstreamChannel = {

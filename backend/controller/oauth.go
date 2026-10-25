@@ -323,6 +323,10 @@ func handleOAuthLogin(c *gin.Context, provider oauth.Provider, oauthUser *oauth.
 			common.ApiErrorT(c, "User has been deleted")
 		case *OAuthRegistrationDisabledError:
 			common.ApiErrorT(c, "New user registration has been disabled by administrator")
+		case *OAuthRegistrationIpLimitError:
+			common.ApiErrorT(c, "Too many accounts registered from this network")
+		case *OAuthRegistrationWindowError:
+			common.ApiErrorT(c, "Too many registrations in a short time, please try again later")
 		case *OAuthEmailAlreadyTakenError:
 			common.ApiErrorT(c, "Email address is already in use")
 		case *OAuthLegacyBindingNotConfirmedError:
@@ -479,6 +483,20 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	if !common.RegisterEnabled {
 		return nil, nil, &OAuthRegistrationDisabledError{}
 	}
+	if err := model.EnsureRegistrationIpAllowed(c.ClientIP()); err != nil {
+		if errors.Is(err, model.ErrRegistrationIpLimitReached) {
+			common.SysLog(common.LogText("registration from %s rejected: per-IP account limit reached", c.ClientIP()))
+			return nil, nil, &OAuthRegistrationIpLimitError{}
+		}
+		return nil, nil, err
+	}
+	if err := model.EnsureRegistrationWindowAllowed(); err != nil {
+		if errors.Is(err, model.ErrRegistrationWindowReached) {
+			common.SysLog(common.LogText("registration rejected: window limit of %d reached", common.RegistrationWindowLimit))
+			return nil, nil, &OAuthRegistrationWindowError{}
+		}
+		return nil, nil, err
+	}
 
 	// Set up new user
 	user.Username = provider.GetProviderPrefix() + strconv.Itoa(model.GetMaxUserId()+1)
@@ -510,6 +528,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 	}
 	user.Role = common.RoleCommonUser
 	user.Status = common.UserStatusEnabled
+	user.RegisterIp = c.ClientIP()
 
 	// Handle affiliate code
 	inviterId := 0
@@ -599,6 +618,21 @@ type OAuthRegistrationDisabledError struct{}
 
 func (e *OAuthRegistrationDisabledError) Error() string {
 	return "registration is disabled"
+}
+
+// OAuthRegistrationIpLimitError reports the per-IP self-registration cap.
+type OAuthRegistrationIpLimitError struct{}
+
+func (e *OAuthRegistrationIpLimitError) Error() string {
+	return "registration ip limit reached"
+}
+
+// OAuthRegistrationWindowError reports the deployment-wide registration window
+// cap.
+type OAuthRegistrationWindowError struct{}
+
+func (e *OAuthRegistrationWindowError) Error() string {
+	return "registration window limit reached"
 }
 
 type OAuthEmailAlreadyTakenError struct{}

@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
+import { RelayTimeoutSettingsSection } from './relay-timeout-settings-section'
+import { RuntimePolicySection } from './runtime-policy-section'
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
@@ -79,6 +81,35 @@ const OPERATIONS_SECTIONS = [
           SMTPStartTLSEnabled: settings.SMTPStartTLSEnabled,
           SMTPInsecureSkipVerify: settings.SMTPInsecureSkipVerify,
           SMTPForceAuthLogin: settings.SMTPForceAuthLogin,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'relay-timeouts',
+    titleKey: 'Relay & streaming timeouts',
+    build: (settings: OperationsSettings) => (
+      <RelayTimeoutSettingsSection
+        defaultValues={{
+          RelayTimeout: settings.RelayTimeout,
+          RelayIdleConnTimeout: settings.RelayIdleConnTimeout,
+          RelayResponseHeaderTimeout: settings.RelayResponseHeaderTimeout,
+          RelayMaxIdleConns: settings.RelayMaxIdleConns,
+          RelayMaxIdleConnsPerHost: settings.RelayMaxIdleConnsPerHost,
+          StreamingTimeout: settings.StreamingTimeout,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'runtime-policies',
+    titleKey: 'Background tasks & verification codes',
+    build: (settings: OperationsSettings) => (
+      <RuntimePolicySection
+        defaultValues={{
+          TaskTimeoutMinutes: settings.TaskTimeoutMinutes,
+          TaskPollMaxFailures: settings.TaskPollMaxFailures,
+          VerificationValidMinutes: settings.VerificationValidMinutes,
         }}
       />
     ),

@@ -14,6 +14,13 @@ var (
 	ErrEmailAlreadyTaken    = errors.New("email already taken")
 	ErrEmailNotFound        = errors.New("email not found")
 	ErrEmailAmbiguous       = errors.New("email matches multiple users")
+	// ErrRegistrationIpLimitReached reports that the calling network already
+	// holds the configured maximum number of self-registered accounts.
+	ErrRegistrationIpLimitReached = errors.New("registration ip limit reached")
+	// ErrRegistrationWindowReached reports that the deployment-wide window
+	// already admitted its configured maximum number of self-registered
+	// accounts and more must wait for the window to slide.
+	ErrRegistrationWindowReached = errors.New("registration window limit reached")
 )
 
 // Token auth errors

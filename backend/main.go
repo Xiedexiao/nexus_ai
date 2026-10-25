@@ -306,8 +306,6 @@ func InitResources() error {
 	// Initialize model settings
 	ratio_setting.InitRatioSettings()
 
-	service.InitHttpClient()
-
 	// Initialize SQL Database
 	err = model.InitDB()
 	if err != nil {
@@ -339,6 +337,12 @@ func InitResources() error {
 		}
 	}
 	model.InitOptionMap()
+
+	// The shared HTTP transports bake in the relay timeout options, so they
+	// must be built after InitOptionMap loads the saved values; otherwise a
+	// timeout edited in the console would silently fall back to the
+	// environment-seeded default on every restart.
+	service.InitHttpClient()
 
 	// 清理旧的磁盘缓存文件
 	common.CleanupOldCacheFiles()

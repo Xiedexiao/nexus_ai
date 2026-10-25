@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/perf_metrics_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	"github.com/go-redis/redis/v8"
 )
 
 var hotBuckets sync.Map
@@ -123,8 +124,12 @@ func Record(sample Sample) {
 	}
 	actual, _ := hotBuckets.LoadOrStore(key, &atomicBucket{})
 	actual.(*atomicBucket).add(sample)
+	// Snapshot the globals before handing off: the pool worker may run long
+	// after this request finishes, and reading the package-level vars there
+	// races with whatever resets them (tests, future hot swaps).
+	redisEnabled, rdb := common.RedisEnabled, common.RDB
 	gopool.Go(func() {
-		recordRedis(key, sample)
+		recordRedisSnapshot(redisEnabled, rdb, key, sample)
 	})
 }
 
@@ -553,11 +558,18 @@ func recordRedis(key bucketKey, sample Sample) {
 	if !common.RedisEnabled || common.RDB == nil {
 		return
 	}
+	recordRedisSnapshot(common.RedisEnabled, common.RDB, key, sample)
+}
+
+func recordRedisSnapshot(redisEnabled bool, rdb *redis.Client, key bucketKey, sample Sample) {
+	if !redisEnabled || rdb == nil {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	redisKey := redisBucketKey(key)
-	pipe := common.RDB.TxPipeline()
+	pipe := rdb.TxPipeline()
 	pipe.HIncrBy(ctx, redisKey, "req", 1)
 	if sample.Success {
 		pipe.HIncrBy(ctx, redisKey, "ok", 1)

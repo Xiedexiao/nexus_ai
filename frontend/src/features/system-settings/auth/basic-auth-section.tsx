@@ -31,6 +31,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -43,6 +44,7 @@ import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { safeNumberFieldProps } from '../utils/numeric-field'
 
 const basicAuthSchema = z.object({
   PasswordLoginEnabled: z.boolean(),
@@ -52,9 +54,13 @@ const basicAuthSchema = z.object({
   EmailDomainRestrictionEnabled: z.boolean(),
   EmailAliasRestrictionEnabled: z.boolean(),
   EmailDomainWhitelist: z.string(),
+  RegistrationIpLimit: z.coerce.number().min(0).max(1000000),
+  RegistrationWindowLimit: z.coerce.number().min(0).max(1000000),
+  RegistrationWindowMinutes: z.coerce.number().min(1).max(527040),
 })
 
-type BasicAuthFormValues = z.infer<typeof basicAuthSchema>
+type BasicAuthFormInput = z.input<typeof basicAuthSchema>
+type BasicAuthFormValues = z.output<typeof basicAuthSchema>
 
 type BasicAuthSectionProps = {
   defaultValues: BasicAuthFormValues
@@ -75,7 +81,7 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
     [defaultValues]
   )
 
-  const form = useForm<BasicAuthFormValues>({
+  const form = useForm<BasicAuthFormInput, unknown, BasicAuthFormValues>({
     resolver: zodResolver(basicAuthSchema),
     defaultValues: formDefaults,
   })
@@ -97,7 +103,10 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
           updates.push({ key, value: domains })
         }
       } else if (value !== defaultValues[key as keyof typeof defaultValues]) {
-        updates.push({ key, value })
+        updates.push({
+          key,
+          value: typeof value === 'number' ? String(value) : value,
+        })
       }
     })
 
@@ -174,6 +183,79 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                   />
                 </FormControl>
               </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='RegistrationIpLimit'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Max accounts per IP')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    step={1}
+                    className='max-w-40'
+                    {...safeNumberFieldProps(field)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Maximum number of accounts that can be registered from one IP address; 0 means unlimited.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='RegistrationWindowLimit'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Registrations per window')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    step={1}
+                    className='max-w-40'
+                    {...safeNumberFieldProps(field)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Maximum number of new registrations within the window across the whole site; 0 means unlimited.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='RegistrationWindowMinutes'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Window length (minutes)')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={1}
+                    step={1}
+                    className='max-w-40'
+                    {...safeNumberFieldProps(field)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t('How far back the registration window counts new sign-ups.')}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
             )}
           />
 
