@@ -85,7 +85,7 @@ services:
     container_name: nexusai-web
     restart: always
     ports:
-      - "8098:80"
+      - "8100:80"
     depends_on:
       api:
         # Wait for the gateway's own health check, so the console is not

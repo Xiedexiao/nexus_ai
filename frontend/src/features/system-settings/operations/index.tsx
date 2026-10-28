@@ -51,6 +51,7 @@ const defaultOperationsSettings: OperationsSettings = {
   RelayMaxIdleConns: 500,
   RelayMaxIdleConnsPerHost: 100,
   StreamingTimeout: 300,
+  StaleAccountCleanupAgeDays: 0,
   TaskTimeoutMinutes: 1440,
   TaskPollMaxFailures: 20,
   VerificationValidMinutes: 10,

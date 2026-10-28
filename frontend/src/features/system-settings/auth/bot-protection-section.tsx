@@ -47,6 +47,7 @@ const botProtectionSchema = z.object({
   TurnstileCheckEnabled: z.boolean(),
   TurnstileSiteKey: z.string().optional(),
   TurnstileSecretKey: z.string().optional(),
+  SliderCaptchaEnabled: z.boolean(),
 })
 
 type BotProtectionFormValues = z.infer<typeof botProtectionSchema>
@@ -99,6 +100,29 @@ export function BotProtectionSection({
                   <FormDescription>
                     {t(
                       'Protect login and registration with Cloudflare Turnstile'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='SliderCaptchaEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Enable slider puzzle captcha')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Protect login, registration and verification codes with a self-hosted drag puzzle; works without third-party services'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>

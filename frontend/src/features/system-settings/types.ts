@@ -196,6 +196,7 @@ export type AuthSettings = {
   WeChatServerToken: string
   WeChatAccountQRCodeImageURL: string
   TurnstileCheckEnabled: boolean
+  SliderCaptchaEnabled: boolean
   TurnstileSiteKey: string
   TurnstileSecretKey: string
   'passkey.enabled': boolean
@@ -385,6 +386,7 @@ export type OperationsSettings = {
   RelayMaxIdleConns: number
   RelayMaxIdleConnsPerHost: number
   StreamingTimeout: number
+  StaleAccountCleanupAgeDays: number
   TaskTimeoutMinutes: number
   TaskPollMaxFailures: number
   VerificationValidMinutes: number

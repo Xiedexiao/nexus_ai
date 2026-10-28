@@ -136,6 +136,16 @@ var QuotaForInvitee = 0
 // REGISTRATION_IP_LIMIT environment variable and then console-managed.
 var RegistrationIpLimit = 0
 
+// SliderCaptchaEnabled gates the drag-puzzle captcha on register/login and
+// verification-code routes. Seeded from SLIDER_CAPTCHA_ENABLED and then
+// console-managed.
+var SliderCaptchaEnabled = false
+
+// StaleAccountCleanupAgeDays deletes self-registered accounts that never
+// logged in and hold no balance once they are older than this many days;
+// 0 or below the 7-day floor disables the sweep. Console-managed.
+var StaleAccountCleanupAgeDays = 0
+
 // RegistrationWindowLimit caps how many self-service accounts may be created
 // across the whole deployment within RegistrationWindowMinutes; 0 disables the
 // cap. Seeded from REGISTRATION_WINDOW_LIMIT and then console-managed.

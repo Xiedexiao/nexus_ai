@@ -71,6 +71,21 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
       )
       return false
     } catch (_error) {
+      // The server enforces a fixed-window send limit per IP. When it answers
+      // 429 it also sends Retry-After; adopt it as the local cooldown so the
+      // button stays disabled until the server would accept again, instead of
+      // letting the user click into the same rejection.
+      const status = (
+        _error as { response?: { status?: number; headers?: Record<string, unknown> } }
+      )?.response?.status
+      const retryAfter = Number(
+        (
+          _error as { response?: { headers?: Record<string, unknown> } }
+        )?.response?.headers?.['retry-after']
+      )
+      if (status === 429 && Number.isFinite(retryAfter) && retryAfter > 0) {
+        startCountdown(Math.min(Math.ceil(retryAfter), 120))
+      }
       handleServerError(
         AuthOperationError.from(
           _error,

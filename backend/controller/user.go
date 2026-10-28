@@ -271,7 +271,7 @@ func Register(c *gin.Context) {
 		}
 		if err := model.EnsureEmailAvailable(user.Email, 0); err != nil {
 			if errors.Is(err, model.ErrEmailAlreadyTaken) {
-				common.ApiErrorT(c, "Email address is already in use")
+				common.ApiErrorT(c, "This email is already registered, please sign in")
 				return
 			}
 			common.ApiErrorT(c, "Database error, please contact the administrator")
@@ -307,7 +307,7 @@ func Register(c *gin.Context) {
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
-			common.ApiErrorT(c, "Email address is already in use")
+			common.ApiErrorT(c, "This email is already registered, please sign in")
 			return
 		}
 		common.ApiError(c, err)

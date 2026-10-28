@@ -110,6 +110,7 @@ const OPERATIONS_SECTIONS = [
           TaskTimeoutMinutes: settings.TaskTimeoutMinutes,
           TaskPollMaxFailures: settings.TaskPollMaxFailures,
           VerificationValidMinutes: settings.VerificationValidMinutes,
+          StaleAccountCleanupAgeDays: settings.StaleAccountCleanupAgeDays,
         }}
       />
     ),

@@ -250,6 +250,9 @@ export async function telegramLogin(
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
   const res = await api.post(`/api/user/register`, payload, {
     params: { turnstile: payload.turnstile ?? '' },
+    headers: payload.slider_token
+      ? { 'X-Slider-Captcha': payload.slider_token }
+      : undefined,
   })
   return res.data
 }
@@ -257,10 +260,12 @@ export async function register(payload: RegisterPayload): Promise<ApiResponse> {
 // Send email verification code
 export async function sendEmailVerification(
   email: string,
-  turnstile?: string
+  turnstile?: string,
+  sliderToken?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/verification', {
     params: { email, turnstile },
+    headers: sliderToken ? { 'X-Slider-Captcha': sliderToken } : undefined,
   })
   return res.data
 }

@@ -1627,3 +1627,34 @@ func RootUserExists() bool {
 	}
 	return true
 }
+
+// StaleAccountCriteria describes accounts eligible for housekeeping deletion:
+// self-registered users who never signed in again after creation, hold no
+// quota or usage, and predate the configured cutoff.
+type StaleAccountCriteria struct {
+	CreatedBefore int64
+	Limit         int
+}
+
+// CountStaleAccounts returns how many accounts match the housekeeping
+// criteria without deleting anything; the admin UI uses it for a dry-run.
+func CountStaleAccounts(criteria StaleAccountCriteria) (int64, error) {
+	var count int64
+	err := DB.Model(&User{}).
+		Where("role = ? AND last_login_at = 0 AND used_quota = 0 AND quota <= ? AND created_at < ?",
+			common.RoleCommonUser, common.QuotaForNewUser, criteria.CreatedBefore).
+		Count(&count).Error
+	return count, err
+}
+
+// DeleteStaleAccounts removes up to Limit matching accounts in one pass and
+// returns how many rows were removed. UsedQuota = 0 and quota = 0 (plus
+// role = common) guarantee an account holds no value and was never active.
+func DeleteStaleAccounts(criteria StaleAccountCriteria) (int64, error) {
+	result := DB.
+		Where("role = ? AND last_login_at = 0 AND used_quota = 0 AND quota <= ? AND created_at < ?",
+			common.RoleCommonUser, common.QuotaForNewUser, criteria.CreatedBefore).
+		Limit(criteria.Limit).
+		Delete(&User{})
+	return result.RowsAffected, result.Error
+}

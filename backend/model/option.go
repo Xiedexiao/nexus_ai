@@ -115,6 +115,8 @@ func InitOptionMap() {
 	common.OptionMap["RegistrationIpLimit"] = strconv.Itoa(common.RegistrationIpLimit)
 	common.OptionMap["RegistrationWindowLimit"] = strconv.Itoa(common.RegistrationWindowLimit)
 	common.OptionMap["RegistrationWindowMinutes"] = strconv.Itoa(common.RegistrationWindowMinutes)
+	common.OptionMap["SliderCaptchaEnabled"] = strconv.FormatBool(common.SliderCaptchaEnabled)
+	common.OptionMap["StaleAccountCleanupAgeDays"] = strconv.Itoa(common.StaleAccountCleanupAgeDays)
 	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
@@ -678,6 +680,12 @@ func updateOptionMap(key string, value string) (err error) {
 		if v, ok := parseClampedNonNegativeInt(value, maxRegistrationWindowMinutes); ok {
 			common.RegistrationWindowMinutes = v
 		}
+	case "SliderCaptchaEnabled":
+		common.SliderCaptchaEnabled = value == "true"
+	case "StaleAccountCleanupAgeDays":
+		if v, ok := parseClampedNonNegativeInt(value, maxStaleAccountAgeDays); ok {
+			common.StaleAccountCleanupAgeDays = v
+		}
 	case "ServerAddress":
 		system_setting.ServerAddress = value
 	case "TaskPublicAddress":
@@ -948,6 +956,7 @@ const (
 	maxRegistrationIpLimit       = 1000000
 	maxRegistrationWindowLimit   = 1000000
 	maxRegistrationWindowMinutes = 366 * 24 * 60
+	maxStaleAccountAgeDays       = 3650
 )
 
 // adminTunableIntBounds maps each console-managed integer knob to its accepted
@@ -974,6 +983,7 @@ var adminTunableIntBounds = map[string][2]int{
 	"RegistrationIpLimit":           {0, maxRegistrationIpLimit},
 	"RegistrationWindowLimit":       {0, maxRegistrationWindowLimit},
 	"RegistrationWindowMinutes":     {1, maxRegistrationWindowMinutes},
+	"StaleAccountCleanupAgeDays":    {0, maxStaleAccountAgeDays},
 }
 
 // adminTunableBoolOptions are the console-managed boolean switches; anything
@@ -984,6 +994,7 @@ var adminTunableBoolOptions = map[string]bool{
 	"GlobalStaticRateLimitEnable": true,
 	"CriticalRateLimitEnable":     true,
 	"SearchRateLimitEnable":       true,
+	"SliderCaptchaEnabled":        true,
 }
 
 // parseClampedNonNegativeInt parses a console-entered integer inside its

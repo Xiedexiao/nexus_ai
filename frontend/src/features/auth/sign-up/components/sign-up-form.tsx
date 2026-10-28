@@ -27,6 +27,7 @@ import type { z } from 'zod'
 import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
+import { SliderCaptcha } from '@/components/slider-captcha'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -45,6 +46,7 @@ import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { useEmailTaken } from '@/features/auth/hooks/use-email-taken'
 import {
   getAffiliateCode,
   saveAffiliateCode,
@@ -100,6 +102,15 @@ export function SignUpForm({
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
+  const { emailTaken, resetEmailCheck } = useEmailTaken(
+    emailValue,
+    emailVerificationRequired
+  )
+  // A fresh keystroke means a possibly different address: drop the stale
+  // "already registered" banner until the debounced probe returns.
+  useEffect(() => {
+    resetEmailCheck()
+  }, [emailValue, resetEmailCheck])
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
@@ -109,6 +120,10 @@ export function SignUpForm({
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
   const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const sliderEnabled = useStatus().status?.slider_captcha === true
+  const [sliderToken, setSliderToken] = useState('')
+  const sliderReady = !sliderEnabled || Boolean(sliderToken)
+  const canSubmit = turnstileReady && sliderReady
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -157,7 +172,15 @@ export function SignUpForm({
       }
     }
 
+    if (emailTaken) {
+      toast.error(t('This email is already registered, please sign in'))
+      return
+    }
     if (!validateTurnstile()) return
+    if (sliderEnabled && !sliderToken) {
+      toast.error(t('Please complete the slider captcha first'))
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -168,6 +191,7 @@ export function SignUpForm({
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
         turnstile: turnstileToken,
+        slider_token: sliderToken,
       })
 
       if (res?.success) {
@@ -186,6 +210,10 @@ export function SignUpForm({
   }
 
   async function handleSendVerificationCode() {
+    if (emailTaken) {
+      toast.error(t('This email is already registered, please sign in'))
+      return
+    }
     if (await sendCode(emailValue || '')) {
       setTurnstileToken('')
       setTurnstileWidgetKey((current) => current + 1)
@@ -323,6 +351,22 @@ export function SignUpForm({
               )}
             />
 
+            {emailVerificationRequired && emailTaken && (
+              <div className='border-destructive/40 bg-destructive/5 text-destructive flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs'>
+                <span>
+                  {t('This email is already registered, please sign in')}
+                </span>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => redirectToLogin()}
+                >
+                  {t('Sign in')}
+                </Button>
+              </div>
+            )}
+
             {/* Verification Code Field */}
             <div className='flex items-end gap-2'>
               <div className='flex-1'>
@@ -340,6 +384,7 @@ export function SignUpForm({
                   isSendingCode ||
                   isActive ||
                   !emailValue ||
+                  emailTaken ||
                   !turnstileReady
                 }
                 onClick={handleSendVerificationCode}
@@ -360,6 +405,11 @@ export function SignUpForm({
             />
           </div>
         )}
+        {sliderEnabled && !sliderToken && (
+          <div className='mt-2'>
+            <SliderCaptcha onToken={setSliderToken} resetKey={turnstileWidgetKey} />
+          </div>
+        )}
 
         <LegalConsent
           status={status}
@@ -375,7 +425,7 @@ export function SignUpForm({
           disabled={
             isLoading ||
             (requiresLegalConsent && !agreedToLegal) ||
-            !turnstileReady
+            !canSubmit
           }
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}

@@ -101,6 +101,7 @@ func InitEnv() {
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
 	PasswordLoginEncryptionEnabled = GetEnvOrDefaultBool("PASSWORD_LOGIN_ENCRYPTION_ENABLED", false)
 	RegistrationIpLimit = GetEnvOrDefault("REGISTRATION_IP_LIMIT", 0)
+	SliderCaptchaEnabled = GetEnvOrDefaultBool("SLIDER_CAPTCHA_ENABLED", false)
 	RegistrationWindowLimit = GetEnvOrDefault("REGISTRATION_WINDOW_LIMIT", 0)
 	RegistrationWindowMinutes = GetEnvOrDefault("REGISTRATION_WINDOW_MINUTES", 60)
 	initNodeNameIdentity()

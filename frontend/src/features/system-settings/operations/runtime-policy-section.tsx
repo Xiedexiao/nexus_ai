@@ -45,12 +45,14 @@ const runtimePolicySchema = z.object({
   TaskTimeoutMinutes: z.coerce.number().min(0).max(527040),
   TaskPollMaxFailures: z.coerce.number().min(0).max(100000),
   VerificationValidMinutes: z.coerce.number().min(1).max(1440),
+  StaleAccountCleanupAgeDays: z.coerce.number().min(0).max(3650),
 })
 
 export type RuntimePolicyDefaults = {
   TaskTimeoutMinutes: number
   TaskPollMaxFailures: number
   VerificationValidMinutes: number
+  StaleAccountCleanupAgeDays: number
 }
 
 type RuntimePolicyFormInput = z.input<typeof runtimePolicySchema>
@@ -176,6 +178,29 @@ export function RuntimePolicySection({
                   <FormDescription>
                     {t(
                       'How long email verification and password-reset codes stay usable.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='StaleAccountCleanupAgeDays'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Abandoned account cleanup (days)')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      step={1}
+                      {...safeNumberFieldProps(field)}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Daily sweep deletes self-registered accounts older than this that never logged in and hold no balance; 0 disables. Minimum 7.'
                     )}
                   </FormDescription>
                   <FormMessage />

@@ -3,6 +3,7 @@ package model
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
@@ -197,4 +198,54 @@ func TestRegistrationIpLimitOption(t *testing.T) {
 	require.NoError(t, validateOptionValue("RegistrationIpLimit", "0"))
 	require.NoError(t, validateOptionValue("RegistrationIpLimit", strconv.Itoa(maxRegistrationIpLimit)))
 
+}
+
+func TestStaleAccountHousekeeping(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.Exec("DELETE FROM users").Error)
+
+	// Eligible: common user, never logged in, no balance, old enough.
+	old := time.Now().Unix() - 100*24*60*60
+	require.NoError(t, DB.Create(&User{
+		Username: "stale-1", Password: "x", AffCode: "st0001",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled,
+		CreatedAt: old,
+	}).Error)
+	// Protected: admin role.
+	require.NoError(t, DB.Create(&User{
+		Username: "stale-admin", Password: "x", AffCode: "st0002",
+		Role: common.RoleRootUser, Status: common.UserStatusEnabled,
+		CreatedAt: old,
+	}).Error)
+	// Protected: logged in before.
+	require.NoError(t, DB.Create(&User{
+		Username: "stale-active", Password: "x", AffCode: "st0003",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled,
+		CreatedAt: old, LastLoginAt: time.Now().Unix(),
+	}).Error)
+	// Protected: has balance.
+	require.NoError(t, DB.Create(&User{
+		Username: "stale-funded", Password: "x", AffCode: "st0004",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled,
+		CreatedAt: old, Quota: 500000,
+	}).Error)
+	// Protected: too recent.
+	require.NoError(t, DB.Create(&User{
+		Username: "stale-fresh", Password: "x", AffCode: "st0005",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled,
+		CreatedAt: time.Now().Unix(),
+	}).Error)
+
+	cutoff := time.Now().Unix() - 90*24*60*60
+	count, err := CountStaleAccounts(StaleAccountCriteria{CreatedBefore: cutoff})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count)
+
+	deleted, err := DeleteStaleAccounts(StaleAccountCriteria{CreatedBefore: cutoff, Limit: 100})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	var remaining int64
+	require.NoError(t, DB.Model(&User{}).Count(&remaining).Error)
+	assert.Equal(t, int64(4), remaining, "only the abandoned common user may be removed")
 }

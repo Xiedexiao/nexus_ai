@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -69,6 +70,7 @@ func GetStatus(c *gin.Context) {
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
+		"slider_captcha":              common.SliderCaptchaEnabled,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
@@ -215,6 +217,51 @@ func GetHomePageContent(c *gin.Context) {
 	serveRevalidatedJSON(c, homePageContent)
 }
 
+// GetSliderCaptcha issues a fresh slider puzzle pair. Public: the challenge
+// id is opaque and single-use; the answer never leaves the server.
+func GetSliderCaptcha(c *gin.Context) {
+	if !common.SliderCaptchaEnabled {
+		common.ApiErrorT(c, "Slider captcha is not enabled")
+		return
+	}
+	bg, piece, _, pieceY, id, err := common.NewSliderCaptcha()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"id":         id,
+		"background": "data:image/png;base64," + base64.StdEncoding.EncodeToString(bg),
+		"piece":      "data:image/png;base64," + base64.StdEncoding.EncodeToString(piece),
+		"piece_y":    pieceY,
+	})
+}
+
+// VerifySliderCaptcha validates a drag answer and consumes the challenge.
+func VerifySliderCaptcha(c *gin.Context) {
+	if !common.SliderCaptchaEnabled {
+		common.ApiErrorT(c, "Slider captcha is not enabled")
+		return
+	}
+	var req struct {
+		ID         string `json:"id"`
+		X          int    `json:"x"`
+		DurationMs int64  `json:"duration_ms"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if common.VerifySliderCaptcha(req.ID, req.X, req.DurationMs) {
+		// Issue a short-lived pass token so the protected route can confirm a
+		// verified human without re-running the puzzle.
+		token := common.IssueSliderPassToken(c.ClientIP())
+		common.ApiSuccess(c, gin.H{"token": token})
+		return
+	}
+	common.ApiErrorT(c, "Captcha verification failed, please refresh and try again")
+}
+
 func SendEmailVerification(c *gin.Context) {
 	email, err := service.ValidateAccountEmail(c.Query("email"))
 	if err != nil {
@@ -223,7 +270,7 @@ func SendEmailVerification(c *gin.Context) {
 	}
 
 	if model.IsEmailAlreadyTaken(email) {
-		common.ApiErrorT(c, "Email address is already in use")
+		common.ApiErrorT(c, "This email is already registered, please sign in")
 		return
 	}
 	code := common.GenerateVerificationCode(6)

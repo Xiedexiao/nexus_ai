@@ -315,7 +315,7 @@ func handleOAuthLogin(c *gin.Context, provider oauth.Provider, oauthUser *oauth.
 	user, migration, err := findOrCreateOAuthUser(c, provider, oauthUser, token, payload.AffiliateCode)
 	if err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
-			common.ApiErrorT(c, "Email address is already in use")
+			common.ApiErrorT(c, "This email is already registered, please sign in")
 			return
 		}
 		switch err.(type) {
@@ -328,7 +328,7 @@ func handleOAuthLogin(c *gin.Context, provider oauth.Provider, oauthUser *oauth.
 		case *OAuthRegistrationWindowError:
 			common.ApiErrorT(c, "Too many registrations in a short time, please try again later")
 		case *OAuthEmailAlreadyTakenError:
-			common.ApiErrorT(c, "Email address is already in use")
+			common.ApiErrorT(c, "This email is already registered, please sign in")
 		case *OAuthLegacyBindingNotConfirmedError:
 			common.ApiErrorT(c, "This {{provider}} account cannot be linked to an existing account automatically, please sign in or register another way and then link {{provider}} in account settings", providerParams(provider.GetName()))
 		default:
