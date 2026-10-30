@@ -117,6 +117,9 @@ func InitOptionMap() {
 	common.OptionMap["RegistrationWindowMinutes"] = strconv.Itoa(common.RegistrationWindowMinutes)
 	common.OptionMap["SliderCaptchaEnabled"] = strconv.FormatBool(common.SliderCaptchaEnabled)
 	common.OptionMap["StaleAccountCleanupAgeDays"] = strconv.Itoa(common.StaleAccountCleanupAgeDays)
+	common.OptionMap["CacheHitStatsEnabled"] = strconv.FormatBool(common.CacheHitStatsEnabled)
+	common.OptionMap["CustomLinks"] = common.CustomLinksRaw
+	common.SetCustomLinks(common.CustomLinksRaw)
 	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
@@ -686,6 +689,11 @@ func updateOptionMap(key string, value string) (err error) {
 		if v, ok := parseClampedNonNegativeInt(value, maxStaleAccountAgeDays); ok {
 			common.StaleAccountCleanupAgeDays = v
 		}
+	case "CacheHitStatsEnabled":
+		common.CacheHitStatsEnabled = value == "true"
+	case "CustomLinks":
+		common.CustomLinksRaw = value
+		common.SetCustomLinks(value)
 	case "ServerAddress":
 		system_setting.ServerAddress = value
 	case "TaskPublicAddress":
@@ -995,6 +1003,7 @@ var adminTunableBoolOptions = map[string]bool{
 	"CriticalRateLimitEnable":     true,
 	"SearchRateLimitEnable":       true,
 	"SliderCaptchaEnabled":        true,
+	"CacheHitStatsEnabled":        true,
 }
 
 // parseClampedNonNegativeInt parses a console-entered integer inside its

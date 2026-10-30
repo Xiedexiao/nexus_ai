@@ -42,6 +42,7 @@ function Fixture() {
         <LogSettingsSection
           defaultValues={{
             LogConsumeEnabled: true,
+            CacheHitStatsEnabled: true,
             'log_setting.user_export_enabled': true,
             'log_setting.max_range_days': 30,
           }}

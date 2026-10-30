@@ -141,6 +141,7 @@ export type SystemTaskFilters = {
 }
 
 export type SiteSettings = {
+  CustomLinks: string
   Notice: string
   SystemName: string
   Logo: string
@@ -394,6 +395,7 @@ export type OperationsSettings = {
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
   LogConsumeEnabled: boolean
+  CacheHitStatsEnabled: boolean
   'log_setting.user_export_enabled': boolean
   'log_setting.max_range_days': number
   'performance_setting.disk_cache_enabled': boolean

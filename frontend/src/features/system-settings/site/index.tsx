@@ -25,6 +25,7 @@ import {
 } from './section-registry.tsx'
 
 const defaultSiteSettings: SiteSettings = {
+  CustomLinks: '[]',
   Notice: '',
   SystemName: 'New API',
   Logo: '',

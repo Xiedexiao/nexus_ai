@@ -39,7 +39,18 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import type { SidebarData } from '@/components/layout/types'
+import { createElement } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
+import { api } from '@/lib/api'
+import { CustomLinkIcon } from '@/components/custom-link-icon'
+
+import type {
+  NavGroup,
+  NavItem,
+  NavLink,
+  SidebarData,
+} from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 
 /**
@@ -48,8 +59,58 @@ import { ROLE } from '@/lib/roles'
  * These are shown when the URL does not match any nested sidebar view
  * registered in `layout/lib/sidebar-view-registry.ts`.
  */
+
+type CustomLinkConfig = {
+  id: string
+  title: string
+  icon?: string
+  proxy: boolean
+  enabled: boolean
+  href?: string
+}
+
+
+// Creates a React component rendering the named Lucide icon without JSX
+// (this module is .ts, so createElement is used instead of JSX syntax).
+function makeCustomIconComponent(iconName?: string) {
+  return function CustomLinkIconWrapper(props: { className?: string }) {
+    return createElement(CustomLinkIcon, { name: iconName, ...props })
+  }
+}
+
+function useCustomLinks(): CustomLinkConfig[] {
+  const { data } = useQuery({
+    queryKey: ['custom-links'],
+    queryFn: async () => {
+      const res = await api.get<{ data?: CustomLinkConfig[] }>('/api/custom_links')
+      return res.data?.data ?? []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+  return (data ?? []).filter((link) => link.enabled)
+}
+
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const customLinks = useCustomLinks()
+
+  const customLinkGroups: NavGroup[] =
+    customLinks.length > 0
+      ? [
+          {
+            id: 'custom-links',
+            title: t('Links'),
+            items: customLinks.map(
+              (link: CustomLinkConfig): NavItem => ({
+                title: link.title,
+                url: link.proxy ? (`/ext/${link.id}/` as NavLink['url']) : (link.href ?? link.id),
+                icon: makeCustomIconComponent(link.icon),
+                external: !link.proxy,
+              })
+            ),
+          },
+        ]
+      : []
 
   return {
     navGroups: [
@@ -178,6 +239,7 @@ export function useSidebarData(): SidebarData {
           },
         ],
       },
+      ...customLinkGroups,
     ],
   }
 }

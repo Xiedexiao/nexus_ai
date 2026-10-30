@@ -24,6 +24,8 @@ import { SectionPageLayout } from '@/components/layout'
 import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
+import { CacheHitStatsPanel } from './components/cache-hit-stats-panel'
+import { useStatus } from '@/hooks/use-status'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
@@ -58,6 +60,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
 function UsageLogsContent() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { status } = useStatus()
   const params = route.useParams()
   const activeCategory: UsageLogsSectionId =
     params.section && isUsageLogsSectionId(params.section)
@@ -150,6 +153,16 @@ function UsageLogsContent() {
                   ))}
                 </TabsList>
               </Tabs>
+            )}
+            {status?.cache_hit_stats && activeCategory === 'common' && (
+              <details className='rounded-md border p-3'>
+                <summary className='cursor-pointer text-sm font-medium'>
+                  {t('Cache hit rate by model')}
+                </summary>
+                <div className='pt-3'>
+                  <CacheHitStatsPanel />
+                </div>
+              </details>
             )}
             <div className='min-h-0 flex-1'>
               <UsageLogsTable logCategory={activeCategory} />

@@ -214,7 +214,7 @@ export function SignUpForm({
       toast.error(t('This email is already registered, please sign in'))
       return
     }
-    if (await sendCode(emailValue || '')) {
+    if (await sendCode(emailValue || '', sliderToken)) {
       setTurnstileToken('')
       setTurnstileWidgetKey((current) => current + 1)
     }

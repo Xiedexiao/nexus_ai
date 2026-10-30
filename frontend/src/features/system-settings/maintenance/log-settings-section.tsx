@@ -50,6 +50,7 @@ import { ServerLogFiles } from './server-log-files'
 
 const logSettingsSchema = z.object({
   LogConsumeEnabled: z.boolean(),
+  CacheHitStatsEnabled: z.boolean(),
   log_setting: z.object({
     user_export_enabled: z.boolean(),
     max_range_days: z.number().int().min(1),
@@ -61,6 +62,7 @@ type LogSettingsFormValues = z.infer<typeof logSettingsSchema>
 type LogSettingsSectionProps = {
   defaultValues: {
     LogConsumeEnabled: boolean
+    CacheHitStatsEnabled: boolean
     'log_setting.user_export_enabled': boolean
     'log_setting.max_range_days': number
   }
@@ -74,6 +76,7 @@ export function LogSettingsSection(props: LogSettingsSectionProps) {
   const formDefaults = useMemo<LogSettingsFormValues>(
     () => ({
       LogConsumeEnabled: props.defaultValues.LogConsumeEnabled,
+      CacheHitStatsEnabled: props.defaultValues.CacheHitStatsEnabled,
       log_setting: {
         user_export_enabled:
           props.defaultValues['log_setting.user_export_enabled'],
@@ -133,6 +136,30 @@ export function LogSettingsSection(props: LogSettingsSectionProps) {
                     <FormDescription>
                       {t(
                         'Track per-request consumption to power usage analytics. Keeping this on increases database writes.'
+                      )}
+                    </FormDescription>
+                  </SettingsSwitchContent>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </SettingsSwitchItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='CacheHitStatsEnabled'
+              render={({ field }) => (
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Cache hit rate by model')}</FormLabel>
+                    <FormDescription>
+                      {t(
+                        'Show the per-model cache hit rate panel on the usage logs page'
                       )}
                     </FormDescription>
                   </SettingsSwitchContent>

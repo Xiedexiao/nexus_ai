@@ -146,6 +146,16 @@ var SliderCaptchaEnabled = false
 // 0 or below the 7-day floor disables the sweep. Console-managed.
 var StaleAccountCleanupAgeDays = 0
 
+// CacheHitStatsEnabled controls whether the usage-logs console exposes the
+// per-model cache-hit-rate view. Seeded from CACHE_HIT_STATS_ENABLED and then
+// console-managed.
+var CacheHitStatsEnabled = true
+
+// CustomLinksRaw holds the admin-configured sidebar links as a JSON array
+// (id/title/target/icon/proxy/enabled per entry). Parsed on load and on
+// every option update; served to the console through /api/custom_links.
+var CustomLinksRaw = "[]"
+
 // RegistrationWindowLimit caps how many self-service accounts may be created
 // across the whole deployment within RegistrationWindowMinutes; 0 disables the
 // cap. Seeded from REGISTRATION_WINDOW_LIMIT and then console-managed.

@@ -191,3 +191,45 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
 	return quotaDatas, err
 }
+
+// ModelCacheHitStat aggregates cache behaviour per model over a window. The
+// rate is cache_read / (cache_read + cache_creation + uncached prompt tokens),
+// so models that never touched the cache divide by zero and are reported as
+// zero-hit rather than filtered out.
+type ModelCacheHitStat struct {
+	ModelName           string  `json:"model_name" gorm:"type:varchar(191)"`
+	RequestCount        int64   `json:"request_count"`
+	CacheReadTokens     int64   `json:"cache_read_tokens"`
+	CacheCreationTokens int64   `json:"cache_creation_tokens"`
+	PromptTokens        int64   `json:"prompt_tokens"`
+	CacheHitRate        float64 `json:"cache_hit_rate" gorm:"-"`
+}
+
+// GetCacheHitStatsByModel sums cache and prompt token columns per model. The
+// prompt-token column in quota_data stores completion + uncached prompt tokens
+// (token_used), so the hit-rate denominator reconstructs total prompt volume
+// as cache_read + cache_creation + token_used.
+func GetCacheHitStatsByModel(startTime int64, endTime int64) ([]ModelCacheHitStat, error) {
+	var stats []ModelCacheHitStat
+	err := DB.Table("quota_data").
+		Select(`model_name,
+			sum(count) as request_count,
+			sum(cache_read_tokens) as cache_read_tokens,
+			sum(cache_creation_tokens) as cache_creation_tokens,
+			sum(token_used) as prompt_tokens`).
+		Where("created_at >= ? and created_at <= ?", startTime, endTime).
+		Group("model_name").
+		Order("request_count DESC").
+		Find(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+	for i := range stats {
+		st := &stats[i]
+		denominator := st.CacheReadTokens + st.CacheCreationTokens + st.PromptTokens
+		if denominator > 0 {
+			st.CacheHitRate = float64(st.CacheReadTokens) / float64(denominator)
+		}
+	}
+	return stats, nil
+}

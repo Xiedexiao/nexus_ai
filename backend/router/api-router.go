@@ -47,6 +47,7 @@ func SetApiRouter(router *gin.Engine) {
 		// gated by the slider captcha: the browser needs to call it before the
 		// user reaches the puzzle, and the authoritative gate stays on the
 		// send-code route it preflights.
+		apiRouter.GET("/custom_links", middleware.UserAuth(), controller.GetCustomLinksForConsole)
 		apiRouter.GET("/check_email", middleware.EmailVerificationRateLimit(), controller.CheckRegistrationEmail)
 		captchaRouter := apiRouter.Group("/captcha")
 		{
@@ -366,6 +367,7 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
 		dataRoute.GET("/flow", middleware.AdminAuth(), controller.GetAllFlowQuotaDates)
 		dataRoute.GET("/flow/self", middleware.UserAuth(), controller.GetUserFlowQuotaDates)
+		dataRoute.GET("/cache_hit_by_model", middleware.AdminAuth(), controller.GetCacheHitStatsByModel)
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{

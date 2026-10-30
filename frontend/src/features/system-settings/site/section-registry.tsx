@@ -26,6 +26,7 @@ import {
 import { HeaderNavigationSection } from '../maintenance/header-navigation-section'
 import { NoticeSection } from '../maintenance/notice-section'
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
+import { CustomLinksSection, type CustomLinksFormValues } from './custom-links-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -73,6 +74,20 @@ const SITE_SECTIONS = [
           initialSerialized={headerNavSerialized}
         />
       )
+    },
+  },
+  {
+    id: 'custom-links',
+    titleKey: 'Custom sidebar links',
+    build: (settings: SiteSettings) => {
+      let links: CustomLinksFormValues['links'] = []
+      try {
+        const parsed: unknown = JSON.parse(settings.CustomLinks || '[]')
+        if (Array.isArray(parsed)) links = parsed as CustomLinksFormValues['links']
+      } catch {
+        links = []
+      }
+      return <CustomLinksSection defaultValues={{ links }} />
     },
   },
   {
