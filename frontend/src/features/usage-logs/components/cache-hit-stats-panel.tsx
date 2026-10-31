@@ -54,9 +54,10 @@ function rateColor(rate: number): string {
 }
 
 /**
- * Per-model cache-hit-rate panel for the usage-logs page. Visibility is
- * server-controlled: the endpoint answers with an error when the admin
- * disabled the view, and the panel collapses to that notice.
+ * Per-model cache-hit-rate panel for the usage-logs page, scoped to the
+ * current user's own usage. Visibility is server-controlled: the admin can
+ * disable the view, and the endpoint answers with an error when disabled, so
+ * the panel collapses to that notice (queries fail silently, no toast).
  */
 export function CacheHitStatsPanel() {
   const { t, i18n } = useTranslation()
@@ -77,6 +78,7 @@ export function CacheHitStatsPanel() {
       return res.data?.data ?? []
     },
     retry: false,
+    meta: { errorToast: false },
   })
 
   const rows = useMemo(

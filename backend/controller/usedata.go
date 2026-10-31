@@ -124,9 +124,9 @@ func GetUserFlowQuotaDates(c *gin.Context) {
 	return
 }
 
-// GetCacheHitStatsByModel serves the per-model cache-hit-rate view. The
-// console hides the whole view when CacheHitStatsEnabled is off, and the
-// endpoint itself still requires admin auth (route-level AdminAuth).
+// GetCacheHitStatsByModel serves the per-model cache-hit-rate view for the
+// current user's own usage. The console hides the whole view when
+// CacheHitStatsEnabled is off; the endpoint always scopes rows to the caller.
 func GetCacheHitStatsByModel(c *gin.Context) {
 	if !common.CacheHitStatsEnabled {
 		common.ApiErrorMsg(c, "Cache hit statistics are disabled by administrator")
@@ -134,7 +134,7 @@ func GetCacheHitStatsByModel(c *gin.Context) {
 	}
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
-	stats, err := model.GetCacheHitStatsByModel(startTimestamp, endTimestamp)
+	stats, err := model.GetCacheHitStatsByModel(c.GetInt("id"), startTimestamp, endTimestamp)
 	if err != nil {
 		common.ApiError(c, err)
 		return

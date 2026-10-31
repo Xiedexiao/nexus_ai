@@ -205,19 +205,23 @@ type ModelCacheHitStat struct {
 	CacheHitRate        float64 `json:"cache_hit_rate" gorm:"-"`
 }
 
-// GetCacheHitStatsByModel sums cache and prompt token columns per model. The
-// prompt-token column in quota_data stores completion + uncached prompt tokens
-// (token_used), so the hit-rate denominator reconstructs total prompt volume
-// as cache_read + cache_creation + token_used.
-func GetCacheHitStatsByModel(startTime int64, endTime int64) ([]ModelCacheHitStat, error) {
+// GetCacheHitStatsByModel sums cache and prompt token columns per model for
+// one user. The prompt-token column in quota_data stores completion + uncached
+// prompt tokens (token_used), so the hit-rate denominator reconstructs total
+// prompt volume as cache_read + cache_creation + token_used.
+func GetCacheHitStatsByModel(userId int, startTime int64, endTime int64) ([]ModelCacheHitStat, error) {
+	return getCacheHitStatsByModel(DB, userId, startTime, endTime)
+}
+
+func getCacheHitStatsByModel(db *gorm.DB, userId int, startTime int64, endTime int64) ([]ModelCacheHitStat, error) {
 	var stats []ModelCacheHitStat
-	err := DB.Table("quota_data").
+	err := db.Table("quota_data").
 		Select(`model_name,
 			sum(count) as request_count,
 			sum(cache_read_tokens) as cache_read_tokens,
 			sum(cache_creation_tokens) as cache_creation_tokens,
 			sum(token_used) as prompt_tokens`).
-		Where("created_at >= ? and created_at <= ?", startTime, endTime).
+		Where("user_id = ? and created_at >= ? and created_at <= ?", userId, startTime, endTime).
 		Group("model_name").
 		Order("request_count DESC").
 		Find(&stats).Error

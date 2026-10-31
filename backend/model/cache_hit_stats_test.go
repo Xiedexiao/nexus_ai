@@ -15,20 +15,22 @@ func TestGetCacheHitStatsByModel(t *testing.T) {
 
 	now := time.Now().Unix()
 	rows := []QuotaData{
-		// 50% hit rate: read 100, write 0, uncached 100.
-		{ModelName: "gpt-x", Count: 2, CacheReadTokens: 100, CacheCreationTokens: 0, TokenUsed: 100, CreatedAt: now},
-		// Never touched the cache: denominator falls back to prompt tokens only.
-		{ModelName: "no-cache-model", Count: 1, CacheReadTokens: 0, CacheCreationTokens: 0, TokenUsed: 300, CreatedAt: now},
-		// Fully cached.
-		{ModelName: "cached-model", Count: 3, CacheReadTokens: 500, CacheCreationTokens: 100, TokenUsed: 50, CreatedAt: now - 3600},
-		// Outside the window: must not appear.
-		{ModelName: "too-old", Count: 9, CacheReadTokens: 999, CreatedAt: now - 48*3600},
+		// User 1, 50% hit rate: read 100, write 0, uncached 100.
+		{UserID: 1, ModelName: "gpt-x", Count: 2, CacheReadTokens: 100, CacheCreationTokens: 0, TokenUsed: 100, CreatedAt: now},
+		// User 1, never touched the cache: denominator falls back to prompt tokens only.
+		{UserID: 1, ModelName: "no-cache-model", Count: 1, CacheReadTokens: 0, CacheCreationTokens: 0, TokenUsed: 300, CreatedAt: now},
+		// User 1, fully cached.
+		{UserID: 1, ModelName: "cached-model", Count: 3, CacheReadTokens: 500, CacheCreationTokens: 100, TokenUsed: 50, CreatedAt: now - 3600},
+		// User 1, outside the window: must not appear.
+		{UserID: 1, ModelName: "too-old", Count: 9, CacheReadTokens: 999, CreatedAt: now - 48*3600},
+		// User 2 uses the same model: sums must stay isolated per user.
+		{UserID: 2, ModelName: "gpt-x", Count: 5, CacheReadTokens: 10, CacheCreationTokens: 0, TokenUsed: 90, CreatedAt: now},
 	}
 	for i := range rows {
 		require.NoError(t, DB.Create(&rows[i]).Error)
 	}
 
-	stats, err := GetCacheHitStatsByModel(now-3600*6, now)
+	stats, err := GetCacheHitStatsByModel(1, now-3600*6, now)
 	require.NoError(t, err)
 	require.Len(t, stats, 3)
 
@@ -54,4 +56,18 @@ func TestGetCacheHitStatsByModel(t *testing.T) {
 
 	// Ordering: highest request count first.
 	assert.Equal(t, "cached-model", stats[0].ModelName)
+
+	// Per-user scoping: user 2 only sees their own rows for the same model.
+	stats2, err := GetCacheHitStatsByModel(2, now-3600*6, now)
+	require.NoError(t, err)
+	require.Len(t, stats2, 1)
+	assert.Equal(t, "gpt-x", stats2[0].ModelName)
+	assert.Equal(t, int64(5), stats2[0].RequestCount)
+	assert.Equal(t, int64(10), stats2[0].CacheReadTokens)
+	assert.InDelta(t, 0.1, stats2[0].CacheHitRate, 0.0001)
+
+	// A user with no usage rows gets an empty result, not another user's data.
+	empty, err := GetCacheHitStatsByModel(3, now-3600*6, now)
+	require.NoError(t, err)
+	require.Empty(t, empty)
 }
