@@ -725,6 +725,64 @@ func TestChannelSettingsValidateHTTPTransport(t *testing.T) {
 	assert.Contains(t, err.Error(), "http2_connection_shards")
 }
 
+func TestChannelSettingsProtocolBaseURLFor(t *testing.T) {
+	settings := ChannelSettings{ProtocolBaseURLs: map[string]string{
+		ProtocolSlotOpenAI: "https://openai.example/v1/",
+		ProtocolSlotClaude: "https://claude.example/anthropic",
+		ProtocolSlotGemini: "https://gemini.example/v1beta",
+	}}
+
+	tests := []struct {
+		name   string
+		format types.RelayFormat
+		want   string
+	}{
+		{name: "claude messages", format: types.RelayFormatClaude, want: "https://claude.example/anthropic"},
+		{name: "gemini", format: types.RelayFormatGemini, want: "https://gemini.example/v1beta"},
+		{name: "chat completions share the openai slot", format: types.RelayFormatOpenAI, want: "https://openai.example/v1"},
+		{name: "responses share the openai slot", format: types.RelayFormatOpenAIResponses, want: "https://openai.example/v1"},
+		{name: "embeddings share the openai slot", format: types.RelayFormatEmbedding, want: "https://openai.example/v1"},
+		{name: "realtime has no slot", format: types.RelayFormatOpenAIRealtime, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, settings.ProtocolBaseURLFor(tt.format))
+		})
+	}
+
+	partial := ChannelSettings{ProtocolBaseURLs: map[string]string{ProtocolSlotClaude: "https://claude.example"}}
+	assert.Equal(t, "", partial.ProtocolBaseURLFor(types.RelayFormatOpenAI))
+	assert.Equal(t, "", ChannelSettings{}.ProtocolBaseURLFor(types.RelayFormatClaude))
+}
+
+func TestChannelSettingsValidateProtocolBaseURLs(t *testing.T) {
+	require.NoError(t, (*ChannelSettings)(nil).ValidateProtocolBaseURLs())
+	require.NoError(t, (&ChannelSettings{}).ValidateProtocolBaseURLs())
+	require.NoError(t, (&ChannelSettings{ProtocolBaseURLs: map[string]string{
+		ProtocolSlotOpenAI: "https://openai.example",
+		ProtocolSlotClaude: "http://claude.example:8080/anthropic",
+		ProtocolSlotGemini: "",
+	}}).ValidateProtocolBaseURLs())
+
+	tests := []struct {
+		name     string
+		urls     map[string]string
+		wantHint string
+	}{
+		{name: "unknown slot", urls: map[string]string{"bedrock": "https://aws.example"}, wantHint: "invalid protocol_base_urls slot"},
+		{name: "relative path", urls: map[string]string{ProtocolSlotClaude: "/anthropic"}, wantHint: "invalid protocol_base_urls.claude"},
+		{name: "missing host", urls: map[string]string{ProtocolSlotOpenAI: "https://"}, wantHint: "invalid protocol_base_urls.openai"},
+		{name: "non http scheme", urls: map[string]string{ProtocolSlotGemini: "ftp://gemini.example"}, wantHint: "must use http or https"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := (&ChannelSettings{ProtocolBaseURLs: tt.urls}).ValidateProtocolBaseURLs()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantHint)
+		})
+	}
+}
+
 func TestChannelOtherSettingsValidateToolLossPolicy(t *testing.T) {
 	require.NoError(t, (*ChannelOtherSettings)(nil).ValidateToolLossPolicy())
 	require.NoError(t, (&ChannelOtherSettings{}).ValidateToolLossPolicy())

@@ -230,6 +230,76 @@ func TestInitChannelMetaRestoresRequestReasoningEffortForRetry(t *testing.T) {
 	assert.Equal(t, "max", info.ReasoningEffort)
 }
 
+// The override follows the protocol the request is finally sent in, so an
+// OpenAI-format client routed to a Claude upstream lands on the claude slot.
+func TestApplyProtocolBaseURL(t *testing.T) {
+	settings := dto.ChannelSettings{ProtocolBaseURLs: map[string]string{
+		dto.ProtocolSlotOpenAI: "https://openai.example/v1",
+		dto.ProtocolSlotClaude: "https://claude.example/anthropic",
+		dto.ProtocolSlotGemini: "https://gemini.example/v1beta",
+	}}
+
+	tests := []struct {
+		name        string
+		relayFormat types.RelayFormat
+		chain       []types.RelayFormat
+		settings    dto.ChannelSettings
+		want        string
+	}{
+		{
+			name:        "openai client converted to claude messages",
+			relayFormat: types.RelayFormatOpenAI,
+			chain:       []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatClaude},
+			settings:    settings,
+			want:        "https://claude.example/anthropic",
+		},
+		{
+			name:        "no conversion uses the request format slot",
+			relayFormat: types.RelayFormatGemini,
+			settings:    settings,
+			want:        "https://gemini.example/v1beta",
+		},
+		{
+			name:        "unset slot keeps the channel base url",
+			relayFormat: types.RelayFormatClaude,
+			settings:    dto.ChannelSettings{ProtocolBaseURLs: map[string]string{dto.ProtocolSlotOpenAI: "https://openai.example"}},
+			want:        "https://channel.example",
+		},
+		{
+			name:        "no overrides at all keeps the channel base url",
+			relayFormat: types.RelayFormatClaude,
+			settings:    dto.ChannelSettings{},
+			want:        "https://channel.example",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &RelayInfo{
+				RelayFormat:            tt.relayFormat,
+				RequestConversionChain: tt.chain,
+				ChannelMeta: &ChannelMeta{
+					ChannelBaseUrl: "https://channel.example",
+					ChannelSetting: tt.settings,
+				},
+			}
+
+			info.ApplyProtocolBaseURL()
+
+			assert.Equal(t, tt.want, info.ChannelBaseUrl)
+		})
+	}
+}
+
+func TestApplyProtocolBaseURLNilReceiver(t *testing.T) {
+	var info *RelayInfo
+	info.ApplyProtocolBaseURL()
+
+	withoutMeta := &RelayInfo{RelayFormat: types.RelayFormatClaude}
+	withoutMeta.ApplyProtocolBaseURL()
+	assert.Nil(t, withoutMeta.ChannelMeta)
+}
+
 func TestInitChannelMetaAppliesAdvancedCustomRoutePassThrough(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	advancedCustom := &dto.AdvancedCustomConfig{

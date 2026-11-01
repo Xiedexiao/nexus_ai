@@ -302,6 +302,9 @@ const SENSITIVE_FORM_FIELDS = [
   'http_protocol',
   'http2_connection_shards',
   'tls_insecure_skip_verify',
+  'protocol_base_url_openai',
+  'protocol_base_url_claude',
+  'protocol_base_url_gemini',
   'pass_through_body_enabled',
   'responses_websocket_enabled',
   'system_prompt',
@@ -2186,6 +2189,75 @@ export function ChannelMutateDrawer({
         </FormItem>
       )}
     />
+  )
+
+  const protocolBaseUrlFields = (
+    <div role='group' aria-label={t('Protocol-specific Base URLs')} className='space-y-4'>
+      <p className='text-sm text-muted-foreground'>
+        {t(
+          'Send each protocol to its own upstream address on this channel. Leave a field empty to keep using the Base URL above. The slot follows the protocol the request is finally sent in, so a converted request uses the converted protocol.'
+        )}
+      </p>
+      <FormField
+        control={form.control}
+        name='protocol_base_url_openai'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('OpenAI Protocol Base URL')}</FormLabel>
+            <FormControl>
+              <Input
+                placeholder={t('https://openai-upstream.example')}
+                {...field}
+              />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Applies to chat completions, responses, embeddings, images, audio, and rerank requests.'
+              )}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='protocol_base_url_claude'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Claude Protocol Base URL')}</FormLabel>
+            <FormControl>
+              <Input
+                placeholder={t('https://claude-upstream.example')}
+                {...field}
+              />
+            </FormControl>
+            <FormDescription>
+              {t('Applies to Claude Messages requests sent upstream.')}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='protocol_base_url_gemini'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Gemini Protocol Base URL')}</FormLabel>
+            <FormControl>
+              <Input
+                placeholder={t('https://gemini-upstream.example')}
+                {...field}
+              />
+            </FormControl>
+            <FormDescription>
+              {t('Applies to Gemini generateContent requests sent upstream.')}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
   )
 
   const routingFields = (
@@ -4787,6 +4859,7 @@ export function ChannelMutateDrawer({
               >
                 {taskPollingFields}
                 {proxyFields}
+                {protocolBaseUrlFields}
                 {httpProtocolFields}
                 {httpShardsFields}
                 {tlsInsecureSkipVerifyFields}

@@ -355,6 +355,24 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 }
 
+// ApplyProtocolBaseURL replaces the channel Base URL with the protocol-specific
+// override configured on the channel, when one is set for the format this
+// request is finally sent in. It runs once per attempt, right before the
+// adaptor builds the upstream URL, because only then does the conversion chain
+// carry the upstream protocol. Callers must not rewrite the gin context value:
+// the Responses WebSocket session compares it against channel.GetBaseURL() to
+// decide whether a reconnect is required.
+func (info *RelayInfo) ApplyProtocolBaseURL() {
+	if info == nil || info.ChannelMeta == nil {
+		return
+	}
+	override := info.ChannelSetting.ProtocolBaseURLFor(info.GetFinalRequestRelayFormat())
+	if override == "" {
+		return
+	}
+	info.ChannelBaseUrl = override
+}
+
 func (info *RelayInfo) ToString() string {
 	if info == nil {
 		return "RelayInfo<nil>"

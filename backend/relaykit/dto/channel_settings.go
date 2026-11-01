@@ -35,6 +35,12 @@ type ChannelSettings struct {
 	// TLSInsecureSkipVerify accepts upstream certificates that fail
 	// verification, such as self-signed ones, for this channel only.
 	TLSInsecureSkipVerify bool `json:"tls_insecure_skip_verify,omitempty"`
+	// ProtocolBaseURLs overrides the channel Base URL for a set of protocols, so
+	// one channel can reach an upstream that serves OpenAI, Claude Messages, and
+	// Gemini on different hosts or path prefixes. Keys are ProtocolSlot* values;
+	// an absent or empty slot keeps using the channel Base URL. The slot is
+	// chosen by the protocol the request is finally sent in, after conversion.
+	ProtocolBaseURLs map[string]string `json:"protocol_base_urls,omitempty"`
 }
 
 // BindsTaskPlugin reports whether the channel is bound to the task plugin,
@@ -84,6 +90,78 @@ func (s *ChannelSettings) ValidateHTTPTransport() error {
 	}
 	if protocol == HTTPProtocolHTTP1 && s.HTTP2ConnectionShards > 1 {
 		return fmt.Errorf("http2_connection_shards must be 1 when http_protocol is http1")
+	}
+	return nil
+}
+
+// Protocol slots of ChannelSettings.ProtocolBaseURLs. Every relay format maps to
+// exactly one slot through ProtocolBaseURLFor.
+const (
+	ProtocolSlotOpenAI = "openai"
+	ProtocolSlotClaude = "claude"
+	ProtocolSlotGemini = "gemini"
+)
+
+// protocolBaseURLSlots is the accepted key set of ProtocolBaseURLs.
+var protocolBaseURLSlots = []string{ProtocolSlotOpenAI, ProtocolSlotClaude, ProtocolSlotGemini}
+
+// ProtocolSlotForFormat maps a relay format to the base URL slot that carries
+// it. Claude Messages and Gemini requests have their own slot; chat
+// completions, responses, embeddings, images, audio, and rerank share the
+// OpenAI slot because those adaptors build OpenAI-style endpoints from the same
+// origin. Realtime is excluded: its WebSocket session is pinned to the origin
+// it first dialed, so an override could not be applied without a reconnect.
+// An empty result means no slot applies.
+func ProtocolSlotForFormat(format types.RelayFormat) string {
+	switch format {
+	case types.RelayFormatClaude:
+		return ProtocolSlotClaude
+	case types.RelayFormatGemini:
+		return ProtocolSlotGemini
+	case types.RelayFormatOpenAIRealtime:
+		return ""
+	default:
+		return ProtocolSlotOpenAI
+	}
+}
+
+// ProtocolBaseURLFor returns the configured base URL override for format, with
+// trailing slashes removed, or "" when the slot is unset and the channel Base
+// URL must be used.
+func (s ChannelSettings) ProtocolBaseURLFor(format types.RelayFormat) string {
+	if len(s.ProtocolBaseURLs) == 0 {
+		return ""
+	}
+	slot := ProtocolSlotForFormat(format)
+	if slot == "" {
+		return ""
+	}
+	override := strings.TrimSpace(s.ProtocolBaseURLs[slot])
+	return strings.TrimRight(override, "/")
+}
+
+// ValidateProtocolBaseURLs rejects unknown slots and values that are not an
+// absolute http(s) URL, matching the save-time validation of the other channel
+// settings.
+func (s *ChannelSettings) ValidateProtocolBaseURLs() error {
+	if s == nil {
+		return nil
+	}
+	for slot, rawURL := range s.ProtocolBaseURLs {
+		if !slices.Contains(protocolBaseURLSlots, slot) {
+			return fmt.Errorf("invalid protocol_base_urls slot %q, accepted slots are %s", slot, strings.Join(protocolBaseURLSlots, ", "))
+		}
+		rawURL = strings.TrimSpace(rawURL)
+		if rawURL == "" {
+			continue
+		}
+		parsedURL, err := url.Parse(rawURL)
+		if err != nil || parsedURL.Host == "" {
+			return fmt.Errorf("invalid protocol_base_urls.%s: %s", slot, rawURL)
+		}
+		if !strings.EqualFold(parsedURL.Scheme, "http") && !strings.EqualFold(parsedURL.Scheme, "https") {
+			return fmt.Errorf("invalid protocol_base_urls.%s: %s must use http or https", slot, rawURL)
+		}
 	}
 	return nil
 }

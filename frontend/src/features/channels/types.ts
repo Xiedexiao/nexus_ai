@@ -92,7 +92,18 @@ export interface ChannelSettings {
   http_protocol?: 'auto' | 'http1' | string
   http2_connection_shards?: number
   tls_insecure_skip_verify?: boolean
+  protocol_base_urls?: ChannelProtocolBaseURLs
 }
+
+/**
+ * Base URL overrides keyed by the protocol a request is finally sent in, so one
+ * channel can reach an upstream that serves OpenAI, Claude Messages, and Gemini
+ * on different hosts or path prefixes. An absent or empty slot keeps using the
+ * channel Base URL.
+ */
+export type ChannelProtocolBaseURLs = Partial<
+  Record<'openai' | 'claude' | 'gemini', string>
+>
 
 export interface ChannelOtherSettings {
   azure_responses_version?: string

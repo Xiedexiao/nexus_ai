@@ -85,6 +85,9 @@ const CONFIGURATION_BLOCKS = {
       'http_protocol',
       'http2_connection_shards',
       'tls_insecure_skip_verify',
+      'protocol_base_url_openai',
+      'protocol_base_url_claude',
+      'protocol_base_url_gemini',
       'disable_task_polling_sleep',
     ],
   },
@@ -177,6 +180,9 @@ export function getChannelConfigurationState(
       (values.http_protocol && values.http_protocol !== 'auto') ||
       (values.http2_connection_shards ?? 1) > 1 ||
       values.tls_insecure_skip_verify ||
+      values.protocol_base_url_openai?.trim() ||
+      values.protocol_base_url_claude?.trim() ||
+      values.protocol_base_url_gemini?.trim() ||
       values.disable_task_polling_sleep
     ),
     upstreamModelDetection:

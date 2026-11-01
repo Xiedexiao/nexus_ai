@@ -219,6 +219,9 @@ func UpstreamAddresses(c *gin.Context) []string {
 	candidates := []string{environmentProxy.HTTPProxy, environmentProxy.HTTPSProxy}
 	if setting, ok := GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
 		candidates = append(candidates, setting.Proxy)
+		for _, protocolBaseURL := range setting.ProtocolBaseURLs {
+			candidates = append(candidates, protocolBaseURL)
+		}
 	}
 	baseURL := strings.TrimSpace(GetContextKeyString(c, constant.ContextKeyChannelBaseUrl))
 	candidates = append(candidates, baseURL)

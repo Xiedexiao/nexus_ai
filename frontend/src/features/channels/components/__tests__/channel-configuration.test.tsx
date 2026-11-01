@@ -1757,6 +1757,62 @@ test('turning on the upstream TLS verification skip saves it in the channel sett
   })
 })
 
+test('per-protocol base URLs round-trip and save only the filled slots', async () => {
+  editingChannel = {
+    ...editingChannel,
+    setting:
+      '{"protocol_base_urls":{"openai":"https://openai-upstream.example","claude":"https://claude-upstream.example"}}',
+  }
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  render(<ConfigurationHarness currentRow={editingChannel} />)
+  await screen.findByDisplayValue('Existing channel')
+  const otherTab = screen.getByRole('tab', { name: /Other Settings/ })
+  expect(otherTab).toHaveAccessibleName(/Configured/)
+  await user.click(otherTab)
+  expect(
+    screen.getByLabelText('OpenAI Protocol Base URL')
+  ).toHaveValue('https://openai-upstream.example')
+  expect(
+    screen.getByLabelText('Claude Protocol Base URL')
+  ).toHaveValue('https://claude-upstream.example')
+  expect(screen.getByLabelText('Gemini Protocol Base URL')).toHaveValue('')
+
+  fireEvent.change(screen.getByLabelText('Gemini Protocol Base URL'), {
+    target: { value: 'https://gemini-upstream.example/' },
+  })
+  fireEvent.change(screen.getByLabelText('Claude Protocol Base URL'), {
+    target: { value: '' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+  await waitFor(() => expect(put).toHaveBeenCalled())
+  const payload = put.mock.calls[0]?.[1] as { setting: string }
+  expect(JSON.parse(payload.setting).protocol_base_urls).toEqual({
+    openai: 'https://openai-upstream.example',
+    gemini: 'https://gemini-upstream.example',
+  })
+})
+
+test('a relative per-protocol base URL is rejected before saving', async () => {
+  const put = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  render(<ConfigurationHarness currentRow={editingChannel} />)
+  await screen.findByDisplayValue('Existing channel')
+  await user.click(screen.getByRole('tab', { name: /Other Settings/ }))
+  fireEvent.change(screen.getByLabelText('Claude Protocol Base URL'), {
+    target: { value: '/anthropic' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Update Channel' }))
+  await waitFor(() =>
+    expect(screen.getByLabelText('Claude Protocol Base URL')).toHaveFocus()
+  )
+  expect(put).not.toHaveBeenCalled()
+})
+
 test('an invalid edit switches categories and replaces configured styling with the field error', async () => {
   const user = userEvent.setup()
   render(<ConfigurationHarness currentRow={editingChannel} />)

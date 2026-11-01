@@ -31,7 +31,7 @@ import {
   MODEL_FETCHABLE_TYPES,
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../constants'
-import type { Channel } from '../types'
+import type { Channel, ChannelProtocolBaseURLs } from '../types'
 import {
   CHANNEL_TYPE_ADVANCED_CUSTOM,
   advancedCustomConfigUsesRelativeUpstreamPath,
@@ -82,6 +82,22 @@ function isOptionalProxyURL(value: string | undefined): boolean {
 export const HTTP_PROTOCOL_AUTO = 'auto'
 export const HTTP_PROTOCOL_HTTP1 = 'http1'
 export const MAX_HTTP2_CONNECTION_SHARDS = 8
+
+/** A per-protocol Base URL must be empty or an absolute http(s) URL. */
+function isOptionalHttpURL(value: string | undefined): boolean {
+  const trimmedValue = value?.trim() || ''
+  if (!trimmedValue) return true
+
+  try {
+    const parsedURL = new URL(trimmedValue)
+    return (
+      (parsedURL.protocol === 'http:' || parsedURL.protocol === 'https:') &&
+      Boolean(parsedURL.hostname)
+    )
+  } catch {
+    return false
+  }
+}
 
 export function normalizeHttpProtocol(
   value: string | undefined | null
@@ -270,6 +286,18 @@ export const channelFormSchema = z
     http_protocol: z.enum(['auto', 'http1']).optional(),
     http2_connection_shards: z.number().int().optional(),
     tls_insecure_skip_verify: z.boolean().optional(),
+    protocol_base_url_openai: z
+      .string()
+      .optional()
+      .refine(isOptionalHttpURL, ERROR_MESSAGES.INVALID_PROTOCOL_BASE_URL),
+    protocol_base_url_claude: z
+      .string()
+      .optional()
+      .refine(isOptionalHttpURL, ERROR_MESSAGES.INVALID_PROTOCOL_BASE_URL),
+    protocol_base_url_gemini: z
+      .string()
+      .optional()
+      .refine(isOptionalHttpURL, ERROR_MESSAGES.INVALID_PROTOCOL_BASE_URL),
     pass_through_body_enabled: z.boolean().optional(),
     responses_websocket_enabled: z.boolean().optional(),
     system_prompt: z.string().optional(),
@@ -464,6 +492,9 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   http_protocol: HTTP_PROTOCOL_AUTO,
   http2_connection_shards: 1,
   tls_insecure_skip_verify: false,
+  protocol_base_url_openai: '',
+  protocol_base_url_claude: '',
+  protocol_base_url_gemini: '',
   pass_through_body_enabled: false,
   responses_websocket_enabled: false,
   system_prompt: '',
@@ -511,6 +542,9 @@ export function transformChannelToFormDefaults(
     http_protocol: HTTP_PROTOCOL_AUTO as 'auto' | 'http1',
     http2_connection_shards: 1,
     tls_insecure_skip_verify: false,
+    protocol_base_url_openai: '',
+    protocol_base_url_claude: '',
+    protocol_base_url_gemini: '',
     pass_through_body_enabled: false,
     responses_websocket_enabled: false,
     system_prompt: '',
@@ -524,6 +558,7 @@ export function transformChannelToFormDefaults(
       const shards = normalizeHttp2ConnectionShards(
         parsed.http2_connection_shards
       )
+      const protocolBaseURLs = parsed.protocol_base_urls || {}
       extraSettings = {
         task_plugin_key: parsed.task_plugin_key || '',
         task_extend_plugin_keys: readTaskExtendPluginKeys(channel.type, parsed),
@@ -533,6 +568,9 @@ export function transformChannelToFormDefaults(
         http_protocol: protocol,
         http2_connection_shards: protocol === HTTP_PROTOCOL_HTTP1 ? 1 : shards,
         tls_insecure_skip_verify: parsed.tls_insecure_skip_verify === true,
+        protocol_base_url_openai: protocolBaseURLs.openai || '',
+        protocol_base_url_claude: protocolBaseURLs.claude || '',
+        protocol_base_url_gemini: protocolBaseURLs.gemini || '',
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         responses_websocket_enabled:
           parsed.responses_websocket_enabled === true,
@@ -692,6 +730,25 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
   }
   if (formData.tls_insecure_skip_verify === true) {
     settingObj.tls_insecure_skip_verify = true
+  }
+  const protocolBaseURLs: ChannelProtocolBaseURLs = {}
+  if (formData.protocol_base_url_openai?.trim()) {
+    protocolBaseURLs.openai = normalizeBaseUrl(
+      formData.protocol_base_url_openai
+    )
+  }
+  if (formData.protocol_base_url_claude?.trim()) {
+    protocolBaseURLs.claude = normalizeBaseUrl(
+      formData.protocol_base_url_claude
+    )
+  }
+  if (formData.protocol_base_url_gemini?.trim()) {
+    protocolBaseURLs.gemini = normalizeBaseUrl(
+      formData.protocol_base_url_gemini
+    )
+  }
+  if (Object.keys(protocolBaseURLs).length > 0) {
+    settingObj.protocol_base_urls = protocolBaseURLs
   }
 
   return JSON.stringify(settingObj)
